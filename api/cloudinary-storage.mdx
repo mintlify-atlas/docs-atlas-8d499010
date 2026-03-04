@@ -1,0 +1,140 @@
+---
+title: cloudinaryStorage
+description: Main plugin function to enable Cloudinary storage in Payload CMS
+---
+
+## Function Signature
+
+```typescript
+export const cloudinaryStorage: CloudinaryStoragePlugin =
+  (cloudinaryOptions: CloudinaryStorageOptions) =>
+  (incomingConfig: Config): Config => {
+    // Returns modified Payload config with Cloudinary storage
+  };
+```
+
+## Overview
+
+The `cloudinaryStorage` function is the main entry point for the Payload Cloudinary plugin. It returns a Payload plugin function that configures Cloudinary storage for specified collections.
+
+## Parameters
+
+<ParamField path="cloudinaryOptions" type="CloudinaryStorageOptions" required>
+  Configuration options for Cloudinary storage. See [CloudinaryStorageOptions](/api/types#cloudinarystorageoptions) for details.
+
+  <Expandable title="properties">
+    <ResponseField name="collections" type="Record<string, CollectionOptions | true>" required>
+      Collections to enable Cloudinary storage for. Use collection slug as key.
+    </ResponseField>
+    
+    <ResponseField name="config" type="CloudinaryConfig" required>
+      Cloudinary API credentials (cloud_name, api_key, api_secret).
+    </ResponseField>
+    
+    <ResponseField name="folder" type="string" default="payload-media">
+      Folder path in Cloudinary where files will be uploaded.
+    </ResponseField>
+    
+    <ResponseField name="enabled" type="boolean" default={true}>
+      Whether to enable the plugin.
+    </ResponseField>
+    
+    <ResponseField name="versioning" type="CloudinaryVersioningOptions">
+      Versioning configuration options.
+    </ResponseField>
+    
+    <ResponseField name="publicID" type="PublicIDOptions">
+      Public ID generation options.
+    </ResponseField>
+    
+    <ResponseField name="customFields" type="Field[]">
+      Additional custom fields to add to media collections.
+    </ResponseField>
+    
+    <ResponseField name="enablePDFThumbnails" type="boolean" default={true}>
+      Enable PDF thumbnails in the admin UI.
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="Plugin" type="(config: Config) => Config">
+  A Payload plugin function that modifies the Payload configuration to use Cloudinary storage.
+</ResponseField>
+
+## Behavior
+
+When called, `cloudinaryStorage`:
+
+1. Returns immediately if `enabled` is `false`
+2. Creates a Cloudinary adapter with the provided configuration
+3. Modifies specified collections to:
+   - Disable local storage (`disableLocalStorage: true`)
+   - Add Cloudinary metadata fields
+   - Add version history fields (if versioning enabled)
+   - Add custom fields (if provided)
+   - Enable PDF thumbnail generation (if enabled)
+4. Returns the modified Payload config
+
+## Usage Example
+
+```typescript
+import { buildConfig } from 'payload/config';
+import { cloudinaryStorage } from '@payloadcms/plugin-cloudinary';
+
+export default buildConfig({
+  collections: [
+    {
+      slug: 'media',
+      upload: true,
+      fields: [
+        {
+          name: 'alt',
+          type: 'text',
+        },
+      ],
+    },
+  ],
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        media: true,
+      },
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+        api_key: process.env.CLOUDINARY_API_KEY!,
+        api_secret: process.env.CLOUDINARY_API_SECRET!,
+      },
+      folder: 'my-app/media',
+      versioning: {
+        enabled: true,
+        storeHistory: true,
+        autoInvalidate: true,
+      },
+    }),
+  ],
+});
+```
+
+## PDF Thumbnail Support
+
+The plugin automatically generates thumbnails for PDF uploads using Cloudinary's transformation API:
+
+```typescript
+// Default PDF thumbnail generator (source: index.ts:44-51)
+const defaultPDFThumbnailGenerator = (
+  doc: PayloadDocument,
+  cloudName: string,
+): string => {
+  if (!doc.cloudinary?.public_id) return "";
+  const page = doc.cloudinary?.selected_page || 1;
+  return `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_300,h_400,c_fill,q_auto,f_jpg/${doc.cloudinary.public_id}.pdf`;
+};
+```
+
+## See Also
+
+- [CloudinaryStorageOptions](/api/types#cloudinarystorageoptions)
+- [generateMediaCollection](/api/generate-media-collection)
+- [Configuration Guide](/configuration)

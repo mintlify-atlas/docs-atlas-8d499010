@@ -1,0 +1,105 @@
+---
+title: CloudinaryStorageOptions
+description: Configuration options for the Payload Cloudinary plugin
+---
+
+The main configuration object for the Cloudinary storage plugin.
+
+## Type Definition
+
+```typescript
+export type CloudinaryStorageOptions = {
+  collections: Partial<
+    Record<UploadCollectionSlug, Omit<CollectionOptions, "adapter"> | true>
+  >;
+  config: CloudinaryConfig;
+  folder?: string;
+  disableLocalStorage?: boolean;
+  enabled?: boolean;
+  versioning?: CloudinaryVersioningOptions;
+  publicID?: PublicIDOptions;
+  supportDynamicFolderMode?: boolean;
+  customFields?: Field[];
+  enablePDFThumbnails?: boolean;
+};
+```
+
+## Properties
+
+<ParamField path="collections" type="Partial<Record<UploadCollectionSlug, Omit<CollectionOptions, 'adapter'> | true>>" required>
+  Collection options to apply the Cloudinary adapter to.
+</ParamField>
+
+<ParamField path="config" type="CloudinaryConfig" required>
+  Cloudinary configuration including `cloud_name`, `api_key`, and `api_secret`.
+</ParamField>
+
+<ParamField path="folder" type="string" default="'payload-media'">
+  Folder path in Cloudinary where files will be uploaded.
+</ParamField>
+
+<ParamField path="disableLocalStorage" type="boolean" default={true}>
+  Whether or not to disable local storage.
+</ParamField>
+
+<ParamField path="enabled" type="boolean" default={true}>
+  Whether or not to enable the plugin.
+</ParamField>
+
+<ParamField path="versioning" type="CloudinaryVersioningOptions">
+  Versioning configuration options. See [CloudinaryVersioningOptions](/api/versioning-options) for details.
+</ParamField>
+
+<ParamField path="publicID" type="PublicIDOptions">
+  Public ID configuration options. See [PublicIDOptions](/api/public-id-options) for details.
+</ParamField>
+
+<ParamField path="supportDynamicFolderMode" type="boolean" default={true}>
+  Support for Dynamic Folder Mode. When true, uses `asset_folder` parameter in upload to ensure correct folder display in Media Library.
+</ParamField>
+
+<ParamField path="customFields" type="Field[]">
+  Additional custom fields to add to media collection. These will be merged with the default fields (cloudinary, versions, etc.).
+</ParamField>
+
+<ParamField path="enablePDFThumbnails" type="boolean" default={true}>
+  Enable PDF thumbnails in the admin UI.
+</ParamField>
+
+## Usage Example
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        media: true,
+        images: {
+          disablePayloadAccessControl: true,
+        },
+      },
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      folder: 'my-app/uploads',
+      disableLocalStorage: true,
+      versioning: {
+        enabled: true,
+        autoInvalidate: true,
+        storeHistory: true,
+      },
+      publicID: {
+        enabled: true,
+        useFilename: true,
+        uniqueFilename: true,
+      },
+      supportDynamicFolderMode: true,
+      enablePDFThumbnails: true,
+    }),
+  ],
+});
+```

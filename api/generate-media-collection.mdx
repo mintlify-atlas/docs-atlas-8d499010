@@ -1,0 +1,183 @@
+---
+title: generateMediaCollection
+description: Utility function to generate a complete Media collection with Cloudinary fields
+---
+
+## Function Signature
+
+```typescript
+export const generateMediaCollection = (
+  cloudinaryOptions: CloudinaryStorageOptions,
+  collectionConfig: Partial<CollectionConfig> = {},
+): CollectionConfig => {
+  // Returns complete CollectionConfig with Cloudinary fields
+};
+```
+
+## Overview
+
+The `generateMediaCollection` function is a utility that creates a fully-configured Payload collection for media storage with Cloudinary. It automatically adds all necessary Cloudinary fields, version history fields, and custom fields.
+
+<Note>
+  This function is useful when you want to create a custom Media collection programmatically rather than relying on the plugin to modify existing collections.
+</Note>
+
+## Parameters
+
+<ParamField path="cloudinaryOptions" type="CloudinaryStorageOptions" required>
+  Cloudinary configuration options. Used to determine which fields to add (e.g., version fields if versioning is enabled).
+
+  <Expandable title="properties">
+    <ResponseField name="config" type="CloudinaryConfig" required>
+      Cloudinary API credentials.
+    </ResponseField>
+    
+    <ResponseField name="versioning" type="CloudinaryVersioningOptions">
+      If `enabled: true` and `storeHistory: true`, version history fields will be added to the collection.
+    </ResponseField>
+    
+    <ResponseField name="customFields" type="Field[]">
+      Additional custom fields to include in the collection.
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="collectionConfig" type="Partial<CollectionConfig>" default="{}">
+  Optional partial collection configuration to merge with the generated config. Any fields provided here will override defaults.
+
+  <Expandable title="properties">
+    <ResponseField name="slug" type="string" default="media">
+      Collection slug. Defaults to "media" if not provided.
+    </ResponseField>
+    
+    <ResponseField name="upload" type="object | boolean">
+      Upload configuration. Will be merged with `disableLocalStorage: true`.
+    </ResponseField>
+    
+    <ResponseField name="fields" type="Field[]">
+      Additional fields to include. These will be treated as custom fields.
+    </ResponseField>
+    
+    <ResponseField name="admin" type="object">
+      Admin UI configuration. Merged with defaults.
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+## Returns
+
+<ResponseField name="CollectionConfig" type="CollectionConfig">
+  A complete Payload collection configuration object with:
+  - `slug`: "media" (or custom slug)
+  - `upload`: Configured with `disableLocalStorage: true`
+  - `fields`: Array containing custom fields, Cloudinary fields, and optional version fields
+  - `admin`: Configured with description and `useAsTitle: "filename"`
+</ResponseField>
+
+## Generated Fields
+
+The function automatically includes:
+
+1. **Custom fields** - From `cloudinaryOptions.customFields` or `collectionConfig.fields`
+2. **Cloudinary fields** - Metadata fields (public_id, secure_url, format, etc.)
+3. **Version fields** - If `versioning.enabled` and `versioning.storeHistory` are both true
+
+## Usage Example
+
+### Basic Usage
+
+```typescript
+import { buildConfig } from 'payload/config';
+import { generateMediaCollection } from '@payloadcms/plugin-cloudinary';
+
+const cloudinaryOptions = {
+  config: {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+    api_key: process.env.CLOUDINARY_API_KEY!,
+    api_secret: process.env.CLOUDINARY_API_SECRET!,
+  },
+  folder: 'my-app/media',
+};
+
+export default buildConfig({
+  collections: [
+    generateMediaCollection(cloudinaryOptions),
+  ],
+});
+```
+
+### Custom Collection with Additional Fields
+
+```typescript
+import { generateMediaCollection } from '@payloadcms/plugin-cloudinary';
+
+const cloudinaryOptions = {
+  config: {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+    api_key: process.env.CLOUDINARY_API_KEY!,
+    api_secret: process.env.CLOUDINARY_API_SECRET!,
+  },
+  versioning: {
+    enabled: true,
+    storeHistory: true,
+  },
+  customFields: [
+    {
+      name: 'alt',
+      type: 'text',
+      required: true,
+    },
+    {
+      name: 'caption',
+      type: 'textarea',
+    },
+  ],
+};
+
+const mediaCollection = generateMediaCollection(
+  cloudinaryOptions,
+  {
+    slug: 'images',
+    admin: {
+      group: 'Assets',
+    },
+  },
+);
+
+export default buildConfig({
+  collections: [mediaCollection],
+});
+```
+
+### With Version History
+
+```typescript
+import { generateMediaCollection } from '@payloadcms/plugin-cloudinary';
+
+const cloudinaryOptions = {
+  config: {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+    api_key: process.env.CLOUDINARY_API_KEY!,
+    api_secret: process.env.CLOUDINARY_API_SECRET!,
+  },
+  versioning: {
+    enabled: true,
+    storeHistory: true, // This enables version history fields
+    autoInvalidate: true,
+  },
+};
+
+const mediaCollection = generateMediaCollection(cloudinaryOptions);
+// Collection now includes 'versions' field for version history
+```
+
+## Source Reference
+
+Implementation: `~/workspace/source/src/collections/Media/index.ts:10-46`
+
+## See Also
+
+- [cloudinaryStorage](/api/cloudinary-storage)
+- [CloudinaryStorageOptions](/api/types#cloudinarystorageoptions)
+- [Custom Fields](/features/custom-fields)
+- [Versioning](/features/versioning)

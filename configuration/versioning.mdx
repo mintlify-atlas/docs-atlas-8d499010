@@ -1,0 +1,409 @@
+---
+title: 'Versioning Support'
+description: 'Track file changes and maintain version history with Cloudinary versioning'
+---
+
+The Payload Cloudinary plugin supports advanced versioning features that allow you to track file changes, maintain version history, and automatically manage CDN cache invalidation.
+
+## Overview
+
+Cloudinary automatically creates new versions when you upload a file with an existing public ID. The plugin can track these versions and provide additional functionality like history storage and automatic cache invalidation.
+
+## Configuration Options
+
+<ParamField path="versioning" type="CloudinaryVersioningOptions">
+  Configuration object for versioning support.
+  
+  <ParamField path="versioning.enabled" type="boolean" default={false}>
+    Whether to enable versioning support. When `true`, the plugin tracks Cloudinary version information.
+  </ParamField>
+  
+  <ParamField path="versioning.autoInvalidate" type="boolean" default={false}>
+    Whether to automatically invalidate old versions in the CDN when a new version is uploaded. Ensures users always see the latest version.
+  </ParamField>
+  
+  <ParamField path="versioning.storeHistory" type="boolean" default={false}>
+    Whether to store the complete version history in PayloadCMS database. When enabled, adds a `versions` field to your media collection.
+  </ParamField>
+</ParamField>
+
+## Basic Versioning
+
+Enable basic versioning to track current version information:
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: { /* ... */ },
+      collections: { 'media': true },
+      versioning: {
+        enabled: true,
+      },
+    })
+  ]
+});
+```
+
+With basic versioning enabled, each media document includes:
+
+```typescript
+{
+  id: '123',
+  filename: 'product.jpg',
+  cloudinary: {
+    public_id: 'my-app/product',
+    version: '1710512345',      // Current version number
+    version_id: 'abc123def456',  // Current version ID
+    secure_url: 'https://res.cloudinary.com/...v1710512345/product.jpg',
+    // ... other metadata
+  }
+}
+```
+
+## Auto-Invalidation
+
+Enable automatic CDN cache invalidation to ensure users always see the latest version:
+
+```typescript
+versioning: {
+  enabled: true,
+  autoInvalidate: true, // Invalidate CDN cache on updates
+}
+```
+
+<Note>
+  Auto-invalidation is useful when you upload a new file with the same public ID. It ensures CDN caches are cleared and users see the updated version immediately.
+</Note>
+
+### How Auto-Invalidation Works
+
+1. You upload a new version of an existing file
+2. Cloudinary creates a new version (e.g., v1710512345 → v1710512999)
+3. The plugin automatically invalidates the old version in the CDN
+4. Users fetch the new version without manual cache clearing
+
+```typescript
+// Before: Old version cached
+https://res.cloudinary.com/demo/image/upload/v1710512345/product.jpg
+
+// After upload: New version, old cache invalidated
+https://res.cloudinary.com/demo/image/upload/v1710512999/product.jpg
+```
+
+## Version History Storage
+
+Store complete version history in your PayloadCMS database:
+
+```typescript
+versioning: {
+  enabled: true,
+  autoInvalidate: true,
+  storeHistory: true, // Store all versions in database
+}
+```
+
+With `storeHistory` enabled, a `versions` array field is added to your media collection:
+
+```typescript
+{
+  id: '123',
+  filename: 'product.jpg',
+  cloudinary: {
+    public_id: 'my-app/product',
+    version: '1710512999',     // Latest version
+    version_id: 'xyz789abc012',
+    secure_url: 'https://res.cloudinary.com/.../v1710512999/product.jpg',
+  },
+  versions: [
+    {
+      version: '1710512345',
+      version_id: 'abc123def456',
+      created_at: '2024-03-15T14:30:45.000Z',
+      secure_url: 'https://res.cloudinary.com/.../v1710512345/product.jpg',
+    },
+    {
+      version: '1710512678',
+      version_id: 'def456ghi789',
+      created_at: '2024-03-15T15:45:00.000Z',
+      secure_url: 'https://res.cloudinary.com/.../v1710512678/product.jpg',
+    },
+    {
+      version: '1710512999',
+      version_id: 'xyz789abc012',
+      created_at: '2024-03-15T16:12:30.000Z',
+      secure_url: 'https://res.cloudinary.com/.../v1710512999/product.jpg',
+    },
+  ]
+}
+```
+
+## Complete Configuration Example
+
+Here's a full example with all versioning features enabled:
+
+```typescript
+import { buildConfig } from 'payload/config';
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+        api_key: process.env.CLOUDINARY_API_KEY!,
+        api_secret: process.env.CLOUDINARY_API_SECRET!,
+      },
+      collections: {
+        'media': true,
+      },
+      versioning: {
+        enabled: true,        // Track version info
+        autoInvalidate: true, // Clear CDN cache automatically
+        storeHistory: true,   // Keep full version history
+      },
+    })
+  ]
+});
+```
+
+## Accessing Version Information
+
+### Current Version
+
+```typescript
+const media = await payload.findByID({
+  collection: 'media',
+  id: 'your-media-id',
+});
+
+console.log(media.cloudinary.version);     // '1710512999'
+console.log(media.cloudinary.version_id);  // 'xyz789abc012'
+console.log(media.cloudinary.secure_url);  // URL with version
+```
+
+### Version History
+
+```typescript
+const media = await payload.findByID({
+  collection: 'media',
+  id: 'your-media-id',
+});
+
+// List all versions
+media.versions?.forEach(version => {
+  console.log(`Version ${version.version}`);
+  console.log(`Created: ${version.created_at}`);
+  console.log(`URL: ${version.secure_url}`);
+});
+
+// Get specific version URL
+const firstVersion = media.versions?.[0];
+if (firstVersion) {
+  console.log(`Original upload: ${firstVersion.secure_url}`);
+}
+```
+
+## Frontend Usage
+
+### Display Current Version
+
+```tsx
+interface MediaType {
+  cloudinary: {
+    public_id: string;
+    version: string;
+    secure_url: string;
+  };
+}
+
+const MediaImage = ({ media }: { media: MediaType }) => {
+  return (
+    <div>
+      <img src={media.cloudinary.secure_url} alt="Media" />
+      <p>Version: {media.cloudinary.version}</p>
+    </div>
+  );
+};
+```
+
+### Version History Viewer
+
+```tsx
+interface VersionType {
+  version: string;
+  version_id: string;
+  created_at: string;
+  secure_url: string;
+}
+
+interface MediaWithHistoryType {
+  filename: string;
+  cloudinary: {
+    version: string;
+  };
+  versions?: VersionType[];
+}
+
+const VersionHistory = ({ media }: { media: MediaWithHistoryType }) => {
+  if (!media.versions || media.versions.length === 0) {
+    return <p>No version history available</p>;
+  }
+
+  return (
+    <div className="version-history">
+      <h3>Version History for {media.filename}</h3>
+      <div className="versions">
+        {media.versions.map((version) => (
+          <div 
+            key={version.version_id} 
+            className={version.version === media.cloudinary.version ? 'current' : ''}
+          >
+            <img 
+              src={version.secure_url} 
+              alt={`Version ${version.version}`}
+            />
+            <p>Version: {version.version}</p>
+            <p>Created: {new Date(version.created_at).toLocaleString()}</p>
+            {version.version === media.cloudinary.version && (
+              <span className="badge">Current</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+```
+
+### Access Specific Version URL
+
+```tsx
+const getVersionURL = (
+  publicId: string,
+  version: string,
+  cloudName: string
+) => {
+  return `https://res.cloudinary.com/${cloudName}/image/upload/v${version}/${publicId}`;
+};
+
+// Usage
+const CompareVersions = ({ media }) => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const oldVersion = media.versions?.[0];
+  const newVersion = media.cloudinary;
+
+  return (
+    <div className="compare">
+      <div>
+        <h4>Original</h4>
+        <img src={oldVersion.secure_url} alt="Original" />
+      </div>
+      <div>
+        <h4>Current</h4>
+        <img src={newVersion.secure_url} alt="Current" />
+      </div>
+    </div>
+  );
+};
+```
+
+## Use Cases
+
+### Asset Management
+
+Track all changes to marketing materials:
+
+```typescript
+versioning: {
+  enabled: true,
+  storeHistory: true,
+}
+```
+
+Benefit: See when product images were updated, revert to previous versions
+
+### CDN Cache Control
+
+Ensure users always see the latest version:
+
+```typescript
+versioning: {
+  enabled: true,
+  autoInvalidate: true,
+}
+```
+
+Benefit: No stale cached images when you update files
+
+### Compliance & Auditing
+
+Maintain complete audit trail:
+
+```typescript
+versioning: {
+  enabled: true,
+  autoInvalidate: true,
+  storeHistory: true,
+}
+```
+
+Benefit: Track who uploaded what and when, maintain history for legal compliance
+
+## Performance Considerations
+
+### Storage Impact
+
+<Note>
+  `storeHistory: true` stores version metadata in your database. Each version adds ~200 bytes to the document. For high-volume applications, monitor database size.
+</Note>
+
+### CDN Invalidation
+
+<Warning>
+  Cloudinary may have limits on CDN invalidation requests. Check your plan's quota if you enable `autoInvalidate` on high-traffic applications.
+</Warning>
+
+## TypeScript Types
+
+```typescript
+import type { CloudinaryVersioningOptions } from 'payload-cloudinary';
+
+const versioningConfig: CloudinaryVersioningOptions = {
+  enabled: true,
+  autoInvalidate: true,
+  storeHistory: true,
+};
+```
+
+Version metadata type:
+
+```typescript
+interface CloudinaryMetadata {
+  public_id: string;
+  version?: string;
+  version_id?: string;
+  secure_url: string;
+  // ... other fields
+}
+
+interface VersionHistory {
+  version: string;
+  version_id: string;
+  created_at: string;
+  secure_url: string;
+}
+
+interface MediaDocument {
+  cloudinary: CloudinaryMetadata;
+  versions?: VersionHistory[];
+}
+```
+
+## Next Steps
+
+- Configure [PDF support](/configuration/pdf-support)
+- Learn about [dynamic folder mode](/configuration/dynamic-folders)
+- Explore [custom fields](/configuration/custom-fields)

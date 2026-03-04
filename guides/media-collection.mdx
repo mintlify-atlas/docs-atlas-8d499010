@@ -1,0 +1,305 @@
+---
+title: Understanding the Media Collection Structure
+description: Learn about the fields and metadata available in Cloudinary-enabled media documents
+---
+
+When you use the Payload Cloudinary plugin, your media documents are enhanced with comprehensive metadata from Cloudinary. This guide explains the complete structure of media documents and how to access the various fields.
+
+## Media Document Structure
+
+Each media document in your collection contains standard Payload fields plus Cloudinary-specific metadata:
+
+```typescript
+{
+  // Standard PayloadCMS fields
+  id: string;
+  filename: string;
+  mimeType: string;
+  filesize: number;
+  width?: number;
+  height?: number;
+  createdAt: string;
+  updatedAt: string;
+
+  // Cloudinary metadata
+  cloudinary: {
+    public_id: string;           // Cloudinary public ID
+    resource_type: string;       // 'image', 'video', or 'raw'
+    format: string;              // File extension
+    secure_url: string;          // Full Cloudinary URL
+    bytes: number;               // File size in bytes
+    created_at: string;          // Cloudinary upload timestamp
+    version: string;             // Current version number
+    version_id: string;          // Current version ID
+    width?: number;              // For images and videos
+    height?: number;             // For images and videos
+    duration?: number;           // For videos only
+  };
+
+  // Version history (if enabled)
+  versions?: Array<{
+    version: string;             // Version number
+    version_id: string;          // Version ID
+    created_at: string;          // Version creation timestamp
+    secure_url: string;          // URL for this version
+  }>;
+
+  // PDF-specific fields (if applicable)
+  cloudinary: {
+    pages?: number;              // Number of pages in PDF
+    selected_page?: number;      // Currently selected page for thumbnail
+    thumbnail_url?: string;      // Thumbnail URL for PDFs
+  };
+
+  // Your custom fields (if configured)
+  alt?: string;
+  caption?: string;
+  tags?: Array<{ tag: string }>;
+}
+```
+
+## CloudinaryMetadata Type
+
+The `cloudinary` field contains metadata defined by the `CloudinaryMetadata` type from `types.ts:172-189`:
+
+```typescript
+export type CloudinaryMetadata = {
+  public_id: string;
+  resource_type: string;
+  format: string;
+  secure_url: string;
+  bytes: number;
+  created_at: string;
+  duration?: number;
+  width?: number;
+  height?: number;
+  eager?: any[];
+  version?: string;
+  version_id?: string;
+  pages?: number;
+  selected_page?: number;
+  thumbnail_url?: string;
+  type?: string;
+};
+```
+
+## Accessing Media Fields
+
+### Public ID and Basic Metadata
+
+The public ID is essential for generating Cloudinary transformations:
+
+```typescript
+// In upload response
+const uploadResponse = await payload.create({
+  collection: 'media',
+  data: {
+    filename: 'example.jpg',
+    mimeType: 'image/jpeg',
+  },
+});
+const publicId = uploadResponse.data.cloudinary.public_id;
+console.log('Resource type:', uploadResponse.data.cloudinary.resource_type);
+console.log('Format:', uploadResponse.data.cloudinary.format);
+
+// In document queries
+const doc = await payload.findByID({
+  collection: 'media',
+  id: 'your-doc-id',
+});
+const publicId = doc.cloudinary.public_id;
+const secureUrl = doc.cloudinary.secure_url;
+```
+
+### Version Information
+
+When versioning is enabled, access version metadata:
+
+```typescript
+const doc = await payload.findByID({
+  collection: 'media',
+  id: 'your-doc-id',
+});
+
+// Access current version
+console.log(`Current version: ${doc.cloudinary.version}`);
+console.log(`Current version ID: ${doc.cloudinary.version_id}`);
+
+// Access all versions
+doc.versions?.forEach(version => {
+  console.log(`Version ${version.version} created at ${version.created_at}`);
+  console.log(`URL: ${version.secure_url}`);
+});
+```
+
+### Image and Video Metadata
+
+For images and videos, additional dimensions are available:
+
+```typescript
+const media = await payload.findByID({
+  collection: 'media',
+  id: 'image-id',
+});
+
+if (media.cloudinary.resource_type === 'image') {
+  console.log(`Dimensions: ${media.cloudinary.width}x${media.cloudinary.height}`);
+  console.log(`Size: ${media.cloudinary.bytes} bytes`);
+}
+
+if (media.cloudinary.resource_type === 'video') {
+  console.log(`Duration: ${media.cloudinary.duration} seconds`);
+  console.log(`Dimensions: ${media.cloudinary.width}x${media.cloudinary.height}`);
+}
+```
+
+### PDF-Specific Fields
+
+PDF documents have additional page-related metadata:
+
+```typescript
+const pdf = await payload.findByID({
+  collection: 'media',
+  id: 'pdf-id',
+});
+
+if (pdf.cloudinary.format === 'pdf') {
+  console.log(`Total pages: ${pdf.cloudinary.pages}`);
+  console.log(`Selected page: ${pdf.cloudinary.selected_page || 1}`);
+  console.log(`Thumbnail URL: ${pdf.cloudinary.thumbnail_url}`);
+}
+```
+
+## Field Definitions in Source
+
+The Cloudinary fields are defined in `src/collections/Media/fields/cloudinary.ts:4-151`:
+
+<Accordion title="View Complete Cloudinary Fields Definition">
+```typescript
+export const cloudinaryFields: Field[] = [
+  {
+    name: "cloudinary",
+    type: "group",
+    admin: {
+      description: "Cloudinary Media Information",
+    },
+    fields: [
+      {
+        name: "public_id",
+        type: "text",
+        label: "Public ID",
+        admin: {
+          description: "Cloudinary Public ID (used for transformations)",
+          readOnly: true,
+        },
+      },
+      {
+        name: "resource_type",
+        type: "text",
+        label: "Resource Type",
+        admin: {
+          description: "Type of the resource (image, video, raw)",
+          readOnly: true,
+        },
+      },
+      // ... additional fields for format, secure_url, bytes, etc.
+      {
+        name: "pages",
+        type: "number",
+        label: "Pages",
+        admin: {
+          description: "Number of pages (for PDFs)",
+          readOnly: true,
+          condition: (data) => data?.format === "pdf",
+        },
+      },
+      {
+        name: "selected_page",
+        type: "number",
+        label: "Page to Display",
+        admin: {
+          description: "Which page of the PDF to use for thumbnails",
+          condition: (data) => data?.format === "pdf",
+        },
+        defaultValue: 1,
+        min: 1,
+      },
+    ],
+  },
+];
+```
+</Accordion>
+
+## Version History Fields
+
+When versioning is enabled with `storeHistory: true`, version fields are added from `src/collections/Media/fields/versions.ts:4-52`:
+
+```typescript
+export const versionFields: Field[] = [
+  {
+    name: "versions",
+    type: "array",
+    label: "Version History",
+    admin: {
+      description: "History of previous versions of this media file",
+      readOnly: true,
+    },
+    fields: [
+      {
+        name: "version",
+        type: "text",
+        label: "Version Number",
+      },
+      {
+        name: "version_id",
+        type: "text",
+        label: "Version ID",
+      },
+      {
+        name: "created_at",
+        type: "text",
+        label: "Created At",
+      },
+      {
+        name: "secure_url",
+        type: "text",
+        label: "URL",
+      },
+    ],
+  },
+];
+```
+
+## Querying Media with Specific Fields
+
+You can optimize queries by selecting only the fields you need:
+
+```typescript
+// Get only essential Cloudinary metadata
+const media = await payload.find({
+  collection: 'media',
+  where: {
+    'cloudinary.resource_type': {
+      equals: 'image',
+    },
+  },
+  select: {
+    filename: true,
+    'cloudinary.public_id': true,
+    'cloudinary.format': true,
+    'cloudinary.width': true,
+    'cloudinary.height': true,
+  },
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Media Collections" icon="wand-magic-sparkles" href="/guides/custom-media-collection">
+    Learn how to create custom media collections with additional configuration
+  </Card>
+  <Card title="Frontend Integration" icon="code" href="/guides/frontend-integration">
+    Use Cloudinary URLs and transformations in your frontend
+  </Card>
+</CardGroup>

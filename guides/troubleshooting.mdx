@@ -1,0 +1,584 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for Payload Cloudinary plugin
+---
+
+This guide covers common issues you might encounter when using the Payload Cloudinary plugin and their solutions.
+
+## Custom Fields Issues
+
+<AccordionGroup>
+  <Accordion title="Custom Fields Not Appearing in Admin UI">
+    If your custom fields aren't showing up in the Payload CMS admin panel, check the following:
+
+    ### 1. Check Collection Slug
+    
+    Ensure the collection slug in your plugin configuration matches exactly with your Media collection slug.
+    
+    ```typescript
+    // In your collection
+    export const Media: CollectionConfig = {
+      slug: 'media', // Must match plugin config
+    };
+    
+    // In your plugin config
+    cloudinaryStorage({
+      collections: {
+        'media': true, // Must match collection slug
+      },
+    })
+    ```
+
+    ### 2. Plugin Order
+    
+    Make sure the `cloudinaryStorage` plugin is registered before your collections are processed. Try moving it earlier in your plugins array:
+    
+    ```typescript
+    export default buildConfig({
+      plugins: [
+        cloudinaryStorage({ /* ... */ }), // Register plugin first
+        // ... other plugins
+      ],
+      collections: [
+        Media,
+        // ... other collections
+      ],
+    })
+    ```
+
+    ### 3. Field Name Conflicts
+    
+    If you already have fields with the same names in your collection, there might be conflicts. Try using different field names.
+
+    ### 4. Restart Dev Server
+    
+    Sometimes a full restart of your development server is needed after making plugin configuration changes:
+    
+    ```bash
+    # Stop the server (Ctrl+C) and restart
+    npm run dev
+    # or
+    yarn dev
+    ```
+
+    ### 5. Debug Plugin Configuration
+    
+    Add a temporary debug log to see what's happening (from `README.md:447-459`):
+    
+    ```typescript
+    export default buildConfig({
+      // ... your config
+      onInit: async (payload) => {
+        // Log the complete Media collection configuration
+        console.log('Media collection fields:',
+          payload.collections['media'].config.fields.map(f => f.name)
+        );
+      }
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Custom Fields Not Saving">
+    If custom fields appear but values don't save:
+
+    ### Check Field Configuration
+    
+    Ensure fields are properly defined with correct types:
+    
+    ```typescript
+    customFields: [
+      {
+        name: 'alt',
+        type: 'text', // Correct type
+        label: 'Alt Text',
+      },
+      // Not:
+      // { name: 'alt', label: 'Alt Text' } // Missing type!
+    ]
+    ```
+
+    ### Verify Database Schema
+    
+    Check if the field exists in your database. You may need to update documents:
+    
+    ```typescript
+    // Migrate existing documents
+    const media = await payload.find({
+      collection: 'media',
+      limit: 1000,
+    });
+    
+    for (const doc of media.docs) {
+      await payload.update({
+        collection: 'media',
+        id: doc.id,
+        data: {
+          alt: doc.alt || '',
+        },
+      });
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Upload Issues
+
+<AccordionGroup>
+  <Accordion title="Upload Fails Silently">
+    ### Check Cloudinary Credentials
+    
+    Verify your environment variables are set correctly:
+    
+    ```bash
+    # .env.local or .env
+    CLOUDINARY_CLOUD_NAME=your-cloud-name
+    CLOUDINARY_API_KEY=your-api-key
+    CLOUDINARY_API_SECRET=your-api-secret
+    ```
+    
+    Test credentials with a simple script:
+    
+    ```typescript
+    import { v2 as cloudinary } from 'cloudinary';
+    
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    
+    // Test upload
+    cloudinary.uploader.upload(
+      'test-image.jpg',
+      { folder: 'test' },
+      (error, result) => {
+        if (error) console.error('Error:', error);
+        else console.log('Success:', result);
+      }
+    );
+    ```
+
+    ### Check File Size Limits
+    
+    Cloudinary free tier has upload limits:
+    - Images: 10 MB by default
+    - Videos: 100 MB by default
+    
+    Adjust limits in your Cloudinary account or upgrade your plan.
+  </Accordion>
+
+  <Accordion title="File Uploads to Wrong Folder">
+    ### Verify Folder Configuration
+    
+    Check your folder setting in the plugin config:
+    
+    ```typescript
+    cloudinaryStorage({
+      folder: 'my-app-media', // Base folder path
+      // ...
+    })
+    ```
+
+    ### Dynamic Folder Mode
+    
+    If folders aren't appearing as expected, check if Dynamic Folder Mode is enabled:
+    
+    ```typescript
+    cloudinaryStorage({
+      folder: 'media',
+      supportDynamicFolderMode: true, // Default: true
+      // ...
+    })
+    ```
+    
+    See the [Dynamic Folder Mode section](#dynamic-folder-mode-issues) below for more details.
+  </Accordion>
+
+  <Accordion title="Duplicate Files Being Created">
+    ### Check Public ID Configuration
+    
+    Ensure `uniqueFilename` is enabled to prevent overwrites:
+    
+    ```typescript
+    cloudinaryStorage({
+      publicID: {
+        enabled: true,
+        useFilename: true,
+        uniqueFilename: true, // Adds unique suffix
+      },
+    })
+    ```
+
+    ### Custom Public ID Generator
+    
+    If using a custom generator, ensure it produces unique IDs:
+    
+    ```typescript
+    publicID: {
+      enabled: true,
+      generatePublicID: (filename, prefix, folder) => {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(7);
+        const safeName = filename.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+        return `${folder}/${safeName}-${timestamp}-${random}`;
+      },
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Dynamic Folder Mode Issues
+
+<AccordionGroup>
+  <Accordion title="Files Not Appearing in Media Library UI">
+    Newer Cloudinary accounts use Dynamic Folder Mode, which separates the folder structure in the UI from the public ID path.
+
+    ### Enable Support
+    
+    Ensure Dynamic Folder Mode support is enabled (it's on by default):
+    
+    ```typescript
+    cloudinaryStorage({
+      folder: 'payload-media',
+      supportDynamicFolderMode: true, // Default: true
+      // ...
+    })
+    ```
+
+    ### How It Works
+    
+    With Dynamic Folder Mode:
+    - The plugin sets `asset_folder` parameter during upload
+    - Assets appear in correct folders in Cloudinary Media Library
+    - Public IDs remain unchanged
+    - URLs continue to work as expected
+
+    ### Check Account Type
+    
+    Determine if your account uses Dynamic Folder Mode:
+    
+    1. Upload a test file with the plugin
+    2. Check the API response or document in Payload:
+       - Dynamic Mode: Has `asset_folder` and `display_name` fields
+       - Fixed Mode: Has `folder` field
+
+    See `README.md:391-432` for more details.
+  </Accordion>
+</AccordionGroup>
+
+## Versioning Issues
+
+<AccordionGroup>
+  <Accordion title="Version History Not Being Stored">
+    ### Enable Version History
+    
+    Make sure `storeHistory` is enabled:
+    
+    ```typescript
+    cloudinaryStorage({
+      versioning: {
+        enabled: true,
+        storeHistory: true, // Required to store history
+      },
+    })
+    ```
+
+    ### Check Version Fields
+    
+    Verify the `versions` field appears in your media documents:
+    
+    ```typescript
+    const media = await payload.findByID({
+      collection: 'media',
+      id: 'doc-id',
+    });
+    
+    console.log(media.versions); // Should be an array
+    ```
+  </Accordion>
+
+  <Accordion title="Old Versions Not Being Invalidated">
+    ### Enable Auto-Invalidation
+    
+    Set `autoInvalidate` to clear CDN cache for old versions:
+    
+    ```typescript
+    cloudinaryStorage({
+      versioning: {
+        enabled: true,
+        autoInvalidate: true, // Invalidate old versions in CDN
+      },
+    })
+    ```
+    
+    <Note>
+    CDN invalidation may take a few minutes to propagate globally.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Frontend Integration Issues
+
+<AccordionGroup>
+  <Accordion title="Images Not Loading">
+    ### Check Cloud Name
+    
+    Verify your cloud name environment variable is set correctly:
+    
+    ```bash
+    # .env.local (Next.js)
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
+    ```
+    
+    The variable must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser.
+
+    ### Verify Public ID Format
+    
+    Check the public ID doesn't have extra slashes or invalid characters:
+    
+    ```typescript
+    console.log('Public ID:', media.cloudinary.public_id);
+    // Should be something like: "payload-media/image-name-123456"
+    // Not: "//payload-media//image-name" or similar
+    ```
+
+    ### Test URL Manually
+    
+    Try accessing the Cloudinary URL directly in your browser:
+    
+    ```
+    https://res.cloudinary.com/{cloud_name}/image/upload/{public_id}.{format}
+    ```
+  </Accordion>
+
+  <Accordion title="Transformations Not Applied">
+    ### Check Transformation Syntax
+    
+    Ensure transformations use correct Cloudinary syntax:
+    
+    ```typescript
+    // Correct:
+    `w_400,h_300,c_fill,q_auto`
+    
+    // Incorrect:
+    `width:400,height:300` // Wrong syntax
+    `w_400 h_300` // Missing commas
+    ```
+
+    ### Test Transformations Individually
+    
+    Add transformations one at a time to identify issues:
+    
+    ```typescript
+    // Test 1: Basic resize
+    `w_400`
+    
+    // Test 2: Add crop
+    `w_400,c_fill`
+    
+    // Test 3: Add quality
+    `w_400,c_fill,q_auto`
+    ```
+  </Accordion>
+
+  <Accordion title="PDF Thumbnails Not Showing">
+    ### Check PDF Format
+    
+    Verify the document is actually a PDF:
+    
+    ```typescript
+    if (media.cloudinary.format === 'pdf') {
+      // PDF-specific code
+    }
+    ```
+
+    ### Use Correct Page Transformation
+    
+    Ensure you're using `pg_X` transformation and converting to image format:
+    
+    ```typescript
+    // Correct:
+    `pg_1,w_300,h_400,c_fill,q_auto,f_jpg/${public_id}.pdf`
+    
+    // Incorrect:
+    `page_1/${public_id}.pdf` // Wrong syntax
+    `pg_1/${public_id}.pdf` // Missing format conversion (f_jpg)
+    ```
+
+    ### Check Page Number
+    
+    Ensure the page number is within range:
+    
+    ```typescript
+    const page = media.cloudinary.selected_page || 1;
+    const totalPages = media.cloudinary.pages || 1;
+    
+    if (page > totalPages) {
+      // Page out of range
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Performance Issues
+
+<AccordionGroup>
+  <Accordion title="Slow Upload Times">
+    ### Check File Size
+    
+    Large files take longer to upload. Consider:
+    - Compressing images before upload
+    - Using client-side compression libraries
+    - Setting file size limits in upload config
+
+    ### Network Issues
+    
+    Test upload speed to Cloudinary:
+    
+    ```typescript
+    const start = Date.now();
+    await payload.create({
+      collection: 'media',
+      data: { /* ... */ },
+    });
+    console.log(`Upload took ${Date.now() - start}ms`);
+    ```
+  </Accordion>
+
+  <Accordion title="Slow Image Loading">
+    ### Use Transformations
+    
+    Always resize images to needed dimensions:
+    
+    ```typescript
+    // Don't load full-size images for thumbnails
+    // Bad:
+    `${public_id}.${format}`
+    
+    // Good:
+    `w_200,h_200,c_fill,q_auto,f_auto/${public_id}.${format}`
+    ```
+
+    ### Enable Auto Format and Quality
+    
+    ```typescript
+    `q_auto,f_auto/${public_id}.${format}`
+    ```
+    
+    This serves WebP/AVIF to supported browsers and optimizes quality.
+
+    ### Lazy Load Images
+    
+    ```jsx
+    <img src={url} loading="lazy" />
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Database Issues
+
+<AccordionGroup>
+  <Accordion title="Cloudinary Metadata Missing">
+    ### Check Upload Success
+    
+    Ensure the upload to Cloudinary succeeded:
+    
+    ```typescript
+    const doc = await payload.create({
+      collection: 'media',
+      data: { /* ... */ },
+    });
+    
+    if (!doc.cloudinary) {
+      console.error('Cloudinary upload failed');
+      // Check server logs for error details
+    }
+    ```
+
+    ### Verify Plugin is Active
+    
+    Confirm the plugin is enabled for the collection:
+    
+    ```typescript
+    cloudinaryStorage({
+      enabled: true, // Default: true
+      collections: {
+        'media': true, // Must be enabled
+      },
+    })
+    ```
+  </Accordion>
+
+  <Accordion title="Orphaned Records After Deletion">
+    The plugin automatically deletes files from Cloudinary when media documents are deleted from Payload.
+
+    ### Manual Cleanup
+    
+    If you have orphaned records, clean them up manually:
+    
+    ```typescript
+    import { v2 as cloudinary } from 'cloudinary';
+    
+    // List all resources in folder
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      prefix: 'payload-media',
+      max_results: 500,
+    });
+    
+    // Check which ones exist in Payload
+    for (const resource of result.resources) {
+      const exists = await payload.find({
+        collection: 'media',
+        where: {
+          'cloudinary.public_id': {
+            equals: resource.public_id,
+          },
+        },
+      });
+      
+      if (exists.docs.length === 0) {
+        // Orphaned - safe to delete
+        await cloudinary.uploader.destroy(resource.public_id);
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+If you're still experiencing issues:
+
+<Steps>
+  <Step title="Check Plugin Version">
+    Ensure you're using the latest version:
+    ```bash
+    npm list payload-cloudinary
+    npm update payload-cloudinary
+    ```
+  </Step>
+  
+  <Step title="Review Logs">
+    Check server logs for error messages and stack traces
+  </Step>
+  
+  <Step title="Minimal Reproduction">
+    Create a minimal example that reproduces the issue
+  </Step>
+  
+  <Step title="Report Issue">
+    Contact the maintainer on X (Twitter): [@syedmuzamilm](https://x.com/syedmuzamilm)
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Reference" icon="gear" href="/api/cloudinary-storage-options">
+    Complete plugin configuration options
+  </Card>
+  <Card title="Media Collection Structure" icon="database" href="/guides/media-collection">
+    Understanding media document fields
+  </Card>
+</CardGroup>

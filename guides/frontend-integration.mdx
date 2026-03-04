@@ -1,0 +1,451 @@
+---
+title: Frontend Integration
+description: Use Cloudinary URLs and transformations in your React and Next.js applications
+---
+
+Once your media is stored in Cloudinary via Payload CMS, you can leverage Cloudinary's powerful transformation APIs to deliver optimized images, videos, and PDFs to your users.
+
+## Getting Started
+
+All Cloudinary URLs follow this pattern:
+
+```
+https://res.cloudinary.com/{cloud_name}/{resource_type}/upload/{transformations}/{public_id}.{format}
+```
+
+- **cloud_name**: Your Cloudinary cloud name from `process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`
+- **resource_type**: `image`, `video`, or `raw`
+- **transformations**: Optional transformations (resize, crop, quality, etc.)
+- **public_id**: From `media.cloudinary.public_id`
+- **format**: From `media.cloudinary.format`
+
+## Basic Image Component
+
+Here's a simple React component that displays an image from Cloudinary:
+
+```jsx
+const CloudinaryImage = ({ media }) => {
+  if (!media?.cloudinary) return null;
+
+  const { public_id, format } = media.cloudinary;
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+  return (
+    <img
+      src={`https://res.cloudinary.com/${cloudName}/image/upload/${public_id}.${format}`}
+      alt={media.alt || media.filename}
+      loading="lazy"
+    />
+  );
+};
+```
+
+## Responsive Images with Transformations
+
+Use Cloudinary transformations to deliver optimized images at different screen sizes. This example is from `README.md:465-491`:
+
+```jsx
+const CloudinaryImage = ({ media }) => {
+  if (!media?.cloudinary) return null;
+
+  const { public_id, format } = media.cloudinary;
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+  // You can use Cloudinary transformations in the URL
+  return (
+    <picture>
+      <source
+        media="(max-width: 640px)"
+        srcSet={`https://res.cloudinary.com/${cloudName}/image/upload/w_400,c_limit,q_auto,f_auto/${public_id}.${format}`}
+      />
+      <source
+        media="(max-width: 1024px)"
+        srcSet={`https://res.cloudinary.com/${cloudName}/image/upload/w_800,c_limit,q_auto,f_auto/${public_id}.${format}`}
+      />
+      <img
+        src={`https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${public_id}.${format}`}
+        alt={media.alt || media.filename}
+        loading="lazy"
+      />
+    </picture>
+  );
+};
+```
+
+### Common Transformations
+
+<Tabs>
+  <Tab title="Resize">
+    ```jsx
+    // Width only (maintain aspect ratio)
+    w_400
+    
+    // Height only
+    h_300
+    
+    // Width and height
+    w_400,h_300
+    
+    // Example URL
+    `https://res.cloudinary.com/${cloudName}/image/upload/w_400,h_300/${public_id}.${format}`
+    ```
+  </Tab>
+  
+  <Tab title="Crop & Fill">
+    ```jsx
+    // Limit (fit inside dimensions)
+    c_limit
+    
+    // Fill (crop to exact dimensions)
+    c_fill
+    
+    // Fit (fit and add padding)
+    c_fit
+    
+    // Scale (stretch to dimensions)
+    c_scale
+    
+    // Example URL
+    `https://res.cloudinary.com/${cloudName}/image/upload/w_400,h_300,c_fill/${public_id}.${format}`
+    ```
+  </Tab>
+  
+  <Tab title="Quality & Format">
+    ```jsx
+    // Auto quality
+    q_auto
+    
+    // Specific quality (1-100)
+    q_80
+    
+    // Auto format (webp, avif, etc.)
+    f_auto
+    
+    // Force format
+    f_webp
+    
+    // Example URL
+    `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${public_id}.${format}`
+    ```
+  </Tab>
+  
+  <Tab title="Effects">
+    ```jsx
+    // Blur
+    e_blur:300
+    
+    // Grayscale
+    e_grayscale
+    
+    // Brightness
+    e_brightness:50
+    
+    // Sharpen
+    e_sharpen:100
+    
+    // Example URL
+    `https://res.cloudinary.com/${cloudName}/image/upload/e_sharpen:100/${public_id}.${format}`
+    ```
+  </Tab>
+</Tabs>
+
+## Next.js Image Component
+
+Integrate with Next.js Image component for automatic optimization:
+
+```jsx
+import Image from 'next/image';
+
+const CloudinaryNextImage = ({ media, width = 800, height = 600 }) => {
+  if (!media?.cloudinary) return null;
+
+  const { public_id, format } = media.cloudinary;
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+  // Next.js Image loader for Cloudinary
+  const cloudinaryLoader = ({ src, width, quality }) => {
+    const params = [`w_${width}`, `q_${quality || 'auto'}`, 'f_auto'];
+    return `https://res.cloudinary.com/${cloudName}/image/upload/${params.join(',')}/${src}`;
+  };
+
+  return (
+    <Image
+      loader={cloudinaryLoader}
+      src={`${public_id}.${format}`}
+      alt={media.alt || media.filename}
+      width={width}
+      height={height}
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+    />
+  );
+};
+```
+
+### Global Cloudinary Loader
+
+Add a global loader to your `next.config.js`:
+
+```javascript
+module.exports = {
+  images: {
+    loader: 'custom',
+    loaderFile: './cloudinary-loader.js',
+  },
+};
+```
+
+Create `cloudinary-loader.js`:
+
+```javascript
+export default function cloudinaryLoader({ src, width, quality }) {
+  const params = [`w_${width}`, `q_${quality || 'auto'}`, 'f_auto', 'c_limit'];
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  return `https://res.cloudinary.com/${cloudName}/image/upload/${params.join(',')}/${src}`;
+}
+```
+
+## PDF Viewer Component
+
+Display PDFs with page navigation and thumbnails. This example is from `README.md:199-241`:
+
+```jsx
+const PDFViewer = ({ media }) => {
+  if (!media?.cloudinary || media.cloudinary.format !== 'pdf') {
+    return null;
+  }
+
+  const { public_id, pages, selected_page } = media.cloudinary;
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const page = selected_page || 1;
+
+  return (
+    <div className="pdf-viewer">
+      <h2>{media.filename}</h2>
+
+      {/* Display the selected page as a thumbnail */}
+      <a href={`https://res.cloudinary.com/${cloudName}/image/upload/${public_id}.pdf`} target="_blank">
+        <img
+          src={`https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_300,h_400,c_fill,q_auto,f_jpg/${public_id}.pdf`}
+          alt={`PDF Page ${page}`}
+        />
+      </a>
+
+      {/* Page navigation if there are multiple pages */}
+      {pages > 1 && (
+        <div className="pdf-pages">
+          <p>Page {page} of {pages}</p>
+
+          {/* Thumbnail grid of all pages */}
+          <div className="page-thumbnails">
+            {Array.from({ length: pages }).map((_, i) => (
+              <img
+                key={i}
+                src={`https://res.cloudinary.com/${cloudName}/image/upload/pg_${i + 1},w_100,h_130,c_fill,q_auto,f_jpg/${public_id}.pdf`}
+                alt={`Page ${i + 1}`}
+                className={i + 1 === page ? 'active' : ''}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+```
+
+### PDF Transformations
+
+Cloudinary provides special transformations for PDFs:
+
+```jsx
+// Convert specific page to image
+pg_1  // First page
+pg_3  // Third page
+
+// Example: Get page 2 as JPEG thumbnail
+`https://res.cloudinary.com/${cloudName}/image/upload/pg_2,w_200,h_260,c_fill,q_auto,f_jpg/${public_id}.pdf`
+
+// Full PDF download
+`https://res.cloudinary.com/${cloudName}/image/upload/${public_id}.pdf`
+```
+
+## Video Player Component
+
+Embed Cloudinary videos with transformations:
+
+```jsx
+const CloudinaryVideo = ({ media }) => {
+  if (!media?.cloudinary || media.cloudinary.resource_type !== 'video') {
+    return null;
+  }
+
+  const { public_id, format } = media.cloudinary;
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+  return (
+    <video
+      controls
+      poster={`https://res.cloudinary.com/${cloudName}/video/upload/so_0,w_800,h_450,c_fill,q_auto/${public_id}.jpg`}
+    >
+      <source
+        src={`https://res.cloudinary.com/${cloudName}/video/upload/q_auto/${public_id}.${format}`}
+        type={`video/${format}`}
+      />
+      Your browser does not support the video tag.
+    </video>
+  );
+};
+```
+
+### Video Transformations
+
+```jsx
+// Auto quality and format
+q_auto,f_auto
+
+// Resize video
+w_800,h_450,c_fill
+
+// Generate thumbnail from specific time (seconds offset)
+so_2.5  // 2.5 seconds into the video
+
+// Example poster image URL
+`https://res.cloudinary.com/${cloudName}/video/upload/so_2.5,w_800,h_450,c_fill,q_auto,f_jpg/${public_id}.jpg`
+```
+
+## TypeScript Types
+
+For better type safety, use the media document types:
+
+```typescript
+import type { PayloadDocument } from 'payload-cloudinary';
+
+interface MediaDocument extends PayloadDocument {
+  id: string;
+  filename: string;
+  alt?: string;
+  caption?: string;
+  cloudinary: {
+    public_id: string;
+    format: string;
+    resource_type: 'image' | 'video' | 'raw';
+    width?: number;
+    height?: number;
+    duration?: number;
+    pages?: number;
+    selected_page?: number;
+  };
+}
+
+const CloudinaryImage: React.FC<{ media: MediaDocument }> = ({ media }) => {
+  // Component implementation
+};
+```
+
+## Reusable Hooks
+
+Create custom hooks for common operations:
+
+```typescript
+import { useMemo } from 'react';
+
+function useCloudinaryUrl(
+  media: MediaDocument | null,
+  transformations: string = ''
+): string | null {
+  return useMemo(() => {
+    if (!media?.cloudinary) return null;
+    
+    const { public_id, format, resource_type } = media.cloudinary;
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    
+    const baseUrl = `https://res.cloudinary.com/${cloudName}/${resource_type}/upload`;
+    const params = transformations ? `${transformations}/` : '';
+    
+    return `${baseUrl}/${params}${public_id}.${format}`;
+  }, [media, transformations]);
+}
+
+// Usage
+function MyComponent({ media }) {
+  const thumbnailUrl = useCloudinaryUrl(media, 'w_400,h_300,c_fill,q_auto');
+  const fullUrl = useCloudinaryUrl(media, 'q_auto,f_auto');
+  
+  return (
+    <div>
+      <img src={thumbnailUrl} alt="Thumbnail" />
+      <a href={fullUrl}>View Full Size</a>
+    </div>
+  );
+}
+```
+
+## Advanced: Signed URLs
+
+For private media, generate signed URLs:
+
+```typescript
+import crypto from 'crypto';
+
+function generateSignedUrl(
+  publicId: string,
+  transformations: string = '',
+  expiresAt: number = Math.floor(Date.now() / 1000) + 3600 // 1 hour
+): string {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  
+  // Build the string to sign
+  const toSign = transformations
+    ? `${transformations}/${publicId}${expiresAt}`
+    : `${publicId}${expiresAt}`;
+  
+  // Generate signature
+  const signature = crypto
+    .createHash('sha256')
+    .update(toSign + apiSecret)
+    .digest('hex')
+    .substring(0, 8);
+  
+  return `https://res.cloudinary.com/${cloudName}/image/upload/s--${signature}--/${transformations}/${publicId}`;
+}
+```
+
+<Warning>
+Never expose your `CLOUDINARY_API_SECRET` to the client. Generate signed URLs server-side.
+</Warning>
+
+## Performance Best Practices
+
+<Steps>
+  <Step title="Use Auto Quality">
+    Always include `q_auto` to let Cloudinary optimize quality based on content and bandwidth
+  </Step>
+  
+  <Step title="Use Auto Format">
+    Include `f_auto` to serve modern formats (WebP, AVIF) to supported browsers
+  </Step>
+  
+  <Step title="Lazy Load Images">
+    Add `loading="lazy"` to images below the fold
+  </Step>
+  
+  <Step title="Responsive Images">
+    Use `srcSet` or Next.js Image component with `sizes` prop for responsive delivery
+  </Step>
+  
+  <Step title="Cache Assets">
+    Cloudinary URLs are cached at the CDN level. Avoid changing transformations frequently
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Cloudinary Docs" icon="cloud" href="https://cloudinary.com/documentation/image_transformations">
+    Explore all available transformations
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

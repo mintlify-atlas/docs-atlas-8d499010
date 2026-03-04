@@ -1,0 +1,117 @@
+---
+title: CloudinaryVersioningOptions
+description: Configuration options for Cloudinary versioning support
+---
+
+Configuration options for enabling and managing asset versioning in Cloudinary.
+
+## Type Definition
+
+```typescript
+export type CloudinaryVersioningOptions = {
+  enabled?: boolean;
+  autoInvalidate?: boolean;
+  storeHistory?: boolean;
+};
+```
+
+## Properties
+
+<ParamField path="enabled" type="boolean" default={false}>
+  Whether to enable versioning support.
+</ParamField>
+
+<ParamField path="autoInvalidate" type="boolean" default={false}>
+  Whether to automatically invalidate old versions in CDN.
+</ParamField>
+
+<ParamField path="storeHistory" type="boolean" default={false}>
+  Whether to store version history in PayloadCMS.
+</ParamField>
+
+## Usage Examples
+
+### Enable All Versioning Features
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        media: true,
+      },
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      versioning: {
+        enabled: true,
+        autoInvalidate: true,
+        storeHistory: true,
+      },
+    }),
+  ],
+});
+```
+
+### Basic Versioning Without History
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        media: true,
+      },
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      versioning: {
+        enabled: true,
+        autoInvalidate: false,
+        storeHistory: false,
+      },
+    }),
+  ],
+});
+```
+
+### Versioning with Auto-Invalidation Only
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        media: true,
+      },
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      versioning: {
+        enabled: true,
+        autoInvalidate: true,
+      },
+    }),
+  ],
+});
+```
+
+## How It Works
+
+When versioning is enabled:
+
+1. **enabled**: Activates Cloudinary's built-in versioning feature, allowing you to track different versions of the same asset
+2. **autoInvalidate**: Automatically purges cached versions from the CDN when a new version is uploaded, ensuring users always see the latest version
+3. **storeHistory**: Maintains a complete version history within PayloadCMS, allowing you to track and reference previous versions of assets

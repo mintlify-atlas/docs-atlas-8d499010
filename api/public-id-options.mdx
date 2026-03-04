@@ -1,0 +1,129 @@
+---
+title: PublicIDOptions
+description: Options for customizing Cloudinary public ID generation
+---
+
+Configuration options for customizing how public IDs are generated for uploaded assets in Cloudinary.
+
+## Type Definition
+
+```typescript
+export type PublicIDOptions = {
+  enabled?: boolean;
+  useFilename?: boolean;
+  uniqueFilename?: boolean;
+  generatePublicID?: (
+    filename: string,
+    prefix?: string,
+    folder?: string,
+  ) => string;
+};
+```
+
+## Properties
+
+<ParamField path="enabled" type="boolean" default={true}>
+  Whether to enable custom public ID generation.
+</ParamField>
+
+<ParamField path="useFilename" type="boolean" default={true}>
+  Whether to use the original filename as part of the public ID.
+</ParamField>
+
+<ParamField path="uniqueFilename" type="boolean" default={true}>
+  Whether to ensure unique filenames by adding a random suffix.
+</ParamField>
+
+<ParamField path="generatePublicID" type="(filename: string, prefix?: string, folder?: string) => string">
+  Custom function to generate a public ID. If provided, this will override `useFilename` and `uniqueFilename`.
+  
+  **Parameters:**
+  - `filename` - The original filename
+  - `prefix` - The file prefix (if any)
+  - `folder` - The base folder
+  
+  **Returns:** A string to use as the public ID
+</ParamField>
+
+## Usage Examples
+
+### Basic Configuration
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        media: true,
+      },
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      publicID: {
+        enabled: true,
+        useFilename: true,
+        uniqueFilename: true,
+      },
+    }),
+  ],
+});
+```
+
+### Custom Public ID Generator
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+import { nanoid } from 'nanoid';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        media: true,
+      },
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      publicID: {
+        enabled: true,
+        generatePublicID: (filename, prefix, folder) => {
+          const timestamp = Date.now();
+          const randomId = nanoid(8);
+          const cleanFilename = filename.replace(/\.[^/.]+$/, '');
+          return `${cleanFilename}-${timestamp}-${randomId}`;
+        },
+      },
+    }),
+  ],
+});
+```
+
+### Disable Custom Public IDs
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        media: true,
+      },
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      publicID: {
+        enabled: false,
+      },
+    }),
+  ],
+});
+```

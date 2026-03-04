@@ -1,0 +1,395 @@
+---
+title: 'Custom Fields'
+description: 'Add custom fields to your media collection for better metadata management'
+---
+
+The Payload Cloudinary plugin allows you to add custom fields to your media collection. These fields are automatically merged with the default Cloudinary fields, giving you complete control over your media metadata.
+
+## Configuration
+
+<ParamField path="customFields" type="Field[]" default={[]}>
+  An array of Payload field configurations to add to the media collection. These fields will be merged with the default Cloudinary metadata fields.
+</ParamField>
+
+## Basic Usage
+
+Add custom fields by including them in the `customFields` array:
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: { /* ... */ },
+      collections: { 'media': true },
+      customFields: [
+        {
+          name: 'alt',
+          type: 'text',
+          label: 'Alt Text',
+          admin: {
+            description: 'Alternative text for accessibility',
+          },
+        },
+        {
+          name: 'caption',
+          type: 'text',
+          label: 'Caption',
+        },
+      ],
+    })
+  ]
+});
+```
+
+## Common Field Examples
+
+### Alt Text for Accessibility
+
+```typescript
+{
+  name: 'alt',
+  type: 'text',
+  label: 'Alt Text',
+  admin: {
+    description: 'Alternative text for accessibility',
+  },
+}
+```
+
+### Caption Field
+
+```typescript
+{
+  name: 'caption',
+  type: 'text',
+  label: 'Caption',
+}
+```
+
+### Tags Array
+
+```typescript
+{
+  name: 'tags',
+  type: 'array',
+  label: 'Tags',
+  fields: [
+    {
+      name: 'tag',
+      type: 'text',
+      required: true,
+    },
+  ],
+}
+```
+
+### Copyright Information
+
+```typescript
+{
+  name: 'copyright',
+  type: 'group',
+  label: 'Copyright',
+  fields: [
+    {
+      name: 'owner',
+      type: 'text',
+      label: 'Copyright Owner',
+    },
+    {
+      name: 'year',
+      type: 'number',
+      label: 'Copyright Year',
+    },
+    {
+      name: 'license',
+      type: 'select',
+      label: 'License Type',
+      options: [
+        { label: 'All Rights Reserved', value: 'arr' },
+        { label: 'Creative Commons', value: 'cc' },
+        { label: 'Public Domain', value: 'pd' },
+      ],
+    },
+  ],
+}
+```
+
+## Complete Example
+
+Here's a comprehensive example with multiple custom fields:
+
+```typescript
+import { buildConfig } from 'payload/config';
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      collections: {
+        'media': true,
+      },
+      customFields: [
+        {
+          name: 'alt',
+          type: 'text',
+          label: 'Alt Text',
+          admin: {
+            description: 'Alternative text for accessibility',
+          },
+        },
+        {
+          name: 'caption',
+          type: 'text',
+          label: 'Caption',
+        },
+        {
+          name: 'tags',
+          type: 'array',
+          label: 'Tags',
+          fields: [
+            {
+              name: 'tag',
+              type: 'text',
+              required: true,
+            },
+          ],
+        },
+        {
+          name: 'copyright',
+          type: 'group',
+          label: 'Copyright',
+          fields: [
+            {
+              name: 'owner',
+              type: 'text',
+              label: 'Copyright Owner',
+            },
+            {
+              name: 'year',
+              type: 'number',
+              label: 'Copyright Year',
+            },
+          ],
+        },
+        {
+          name: 'category',
+          type: 'select',
+          label: 'Category',
+          options: [
+            { label: 'Product', value: 'product' },
+            { label: 'Marketing', value: 'marketing' },
+            { label: 'Editorial', value: 'editorial' },
+          ],
+        },
+      ],
+    })
+  ]
+});
+```
+
+## Using with Existing Collections
+
+<Note>
+  If you already have a Media collection defined in your Payload config, the plugin will automatically add custom fields to it. Ensure your collection slug matches the one in your plugin configuration.
+</Note>
+
+```typescript
+// In your collection definition (collections/Media.ts)
+export const Media: CollectionConfig = {
+  slug: 'media', // Must match plugin config
+  access: {
+    read: () => true,
+  },
+  fields: [
+    // Your existing fields
+  ],
+  upload: true,
+};
+
+// In your payload.config.ts
+export default buildConfig({
+  collections: [Media, Users],
+  plugins: [
+    cloudinaryStorage({
+      collections: {
+        'media': true, // Matches the slug above
+      },
+      customFields: [
+        // Custom fields are added to your Media collection
+        {
+          name: 'alt',
+          type: 'text',
+          label: 'Alt Text',
+        },
+      ],
+    })
+  ]
+});
+```
+
+## Field Merging Behavior
+
+The plugin merges fields in this order:
+
+1. **Your existing collection fields** (if you have a pre-defined collection)
+2. **Custom fields** (from `customFields` option)
+3. **Cloudinary metadata fields** (always added: `cloudinary` group)
+4. **Version history fields** (only if `versioning.storeHistory` is enabled)
+
+```typescript
+// Final field structure:
+[
+  // 1. Your existing fields
+  { name: 'myField', type: 'text' },
+  
+  // 2. Your custom fields
+  { name: 'alt', type: 'text' },
+  { name: 'caption', type: 'text' },
+  
+  // 3. Cloudinary fields (auto-added)
+  { name: 'cloudinary', type: 'group', fields: [...] },
+  
+  // 4. Version fields (if versioning enabled)
+  { name: 'versions', type: 'array', fields: [...] },
+]
+```
+
+## Accessing Custom Fields
+
+### In Your Frontend
+
+```typescript
+const media = await payload.findByID({
+  collection: 'media',
+  id: 'your-media-id',
+});
+
+console.log(media.alt); // Your alt text
+console.log(media.caption); // Your caption
+console.log(media.tags); // Array of tags
+console.log(media.copyright?.owner); // Copyright owner
+```
+
+### In React Components
+
+```tsx
+interface MediaType {
+  id: string;
+  filename: string;
+  cloudinary: {
+    public_id: string;
+    secure_url: string;
+  };
+  alt?: string;
+  caption?: string;
+  tags?: Array<{ tag: string }>;
+}
+
+const MediaCard = ({ media }: { media: MediaType }) => {
+  return (
+    <figure>
+      <img 
+        src={media.cloudinary.secure_url} 
+        alt={media.alt || media.filename}
+      />
+      {media.caption && <figcaption>{media.caption}</figcaption>}
+      {media.tags && (
+        <div className="tags">
+          {media.tags.map((t, i) => <span key={i}>{t.tag}</span>)}
+        </div>
+      )}
+    </figure>
+  );
+};
+```
+
+## Advanced Field Types
+
+### Relationship Field
+
+```typescript
+{
+  name: 'photographer',
+  type: 'relationship',
+  label: 'Photographer',
+  relationTo: 'users',
+}
+```
+
+### Rich Text Field
+
+```typescript
+{
+  name: 'description',
+  type: 'richText',
+  label: 'Detailed Description',
+}
+```
+
+### Conditional Fields
+
+```typescript
+{
+  name: 'mediaType',
+  type: 'select',
+  label: 'Media Type',
+  options: [
+    { label: 'Photo', value: 'photo' },
+    { label: 'Illustration', value: 'illustration' },
+  ],
+},
+{
+  name: 'cameraSettings',
+  type: 'group',
+  label: 'Camera Settings',
+  admin: {
+    condition: (data) => data.mediaType === 'photo',
+  },
+  fields: [
+    { name: 'iso', type: 'number' },
+    { name: 'aperture', type: 'text' },
+    { name: 'shutterSpeed', type: 'text' },
+  ],
+}
+```
+
+## Troubleshooting
+
+### Custom Fields Not Appearing
+
+If your custom fields aren't visible in the admin panel:
+
+1. **Check collection slug**: Ensure it matches exactly
+2. **Restart dev server**: Changes require a full restart
+3. **Verify plugin order**: Place the plugin before collections are processed
+4. **Check for naming conflicts**: Avoid field names that conflict with built-in fields
+
+### Debug Field Configuration
+
+```typescript
+export default buildConfig({
+  onInit: async (payload) => {
+    console.log('Media collection fields:',
+      payload.collections['media'].config.fields.map(f => f.name)
+    );
+  }
+});
+```
+
+<Warning>
+  Avoid using these reserved field names: `cloudinary`, `versions`, `filename`, `mimeType`, `filesize`, `width`, `height`
+</Warning>
+
+## Next Steps
+
+- Learn about [public ID customization](/configuration/public-id)
+- Enable [versioning support](/configuration/versioning)
+- Configure [PDF thumbnails](/configuration/pdf-support)

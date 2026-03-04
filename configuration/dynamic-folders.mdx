@@ -1,0 +1,405 @@
+---
+title: 'Dynamic Folder Mode'
+description: 'Support for Cloudinary Dynamic Folder Mode in newer accounts'
+---
+
+Cloudinary offers two folder management modes: **Fixed Folder Mode** (older accounts) and **Dynamic Folder Mode** (newer accounts). The Payload Cloudinary plugin supports both modes seamlessly.
+
+## Overview
+
+### Fixed Folder Mode (Legacy)
+
+In Fixed Folder Mode, the folder structure in the Media Library UI directly corresponds to the public ID path:
+
+- Public ID: `my-app/products/image.jpg`
+- Media Library folder: `my-app/products/`
+- Moving files in the UI changes their public IDs
+
+### Dynamic Folder Mode (Modern)
+
+Dynamic Folder Mode separates the UI folder structure (`asset_folder`) from the public ID path:
+
+- Public ID: `my-app/products/image.jpg`
+- Asset folder: `my-app/products/` (UI only)
+- Display name: `image.jpg` (shown in UI)
+- Moving files in the UI **does not** change public IDs
+- Existing URLs remain valid after moving files
+
+## Configuration
+
+<ParamField path="supportDynamicFolderMode" type="boolean" default={true}>
+  Whether to support Dynamic Folder Mode for newer Cloudinary accounts. When `true`, the plugin adds the `asset_folder` parameter to uploads.
+</ParamField>
+
+By default, the plugin enables Dynamic Folder Mode support:
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: { /* ... */ },
+      collections: { 'media': true },
+      folder: 'my-app',
+      supportDynamicFolderMode: true, // Default
+    })
+  ]
+});
+```
+
+## How It Works
+
+### With Dynamic Folder Mode Support (Default)
+
+When `supportDynamicFolderMode: true`, the plugin:
+
+1. Generates the public ID as usual (e.g., `my-app/products/image`)
+2. Adds `asset_folder` parameter to match the folder path
+3. Files appear in the correct folders in Cloudinary's Media Library UI
+4. Public IDs remain stable even if you move files in the UI
+
+```typescript
+// Upload parameters sent to Cloudinary
+{
+  public_id: 'my-app/products/image',
+  asset_folder: 'my-app/products',  // For Dynamic Folder Mode
+  // ... other parameters
+}
+```
+
+### Without Dynamic Folder Mode Support
+
+When `supportDynamicFolderMode: false`, the plugin:
+
+1. Generates the public ID (e.g., `my-app/products/image`)
+2. Does **not** add `asset_folder` parameter
+3. Relies on Cloudinary's default folder handling
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  folder: 'my-app',
+  supportDynamicFolderMode: false, // Disable
+})
+```
+
+## Benefits of Dynamic Folder Mode
+
+### 1. Stable URLs
+
+Public IDs don't change when you reorganize files in the Media Library:
+
+```typescript
+// Original location
+Public ID: my-app/products/shoe.jpg
+URL: https://res.cloudinary.com/demo/image/upload/my-app/products/shoe.jpg
+
+// After moving to "archive" folder in UI
+Public ID: my-app/products/shoe.jpg  // Still the same!
+URL: https://res.cloudinary.com/demo/image/upload/my-app/products/shoe.jpg  // Still works!
+Asset Folder: my-app/archive  // Only UI changed
+```
+
+### 2. Better Organization
+
+Separate your organizational structure from your URL structure:
+
+```typescript
+// Public IDs organized by purpose
+my-app/product-images/item-123.jpg
+my-app/product-images/item-456.jpg
+
+// Media Library folders organized by project
+Project A/
+  item-123.jpg
+  item-456.jpg
+Project B/
+  ...
+```
+
+### 3. Migration Support
+
+Reorganize your Media Library without breaking existing URLs in production.
+
+## Detecting Your Account Type
+
+To check which folder mode your Cloudinary account uses:
+
+### Method 1: Check Upload Response
+
+Upload a test file and examine the response:
+
+```typescript
+const uploadResult = await cloudinary.uploader.upload('test.jpg', {
+  folder: 'test',
+});
+
+console.log(uploadResult);
+```
+
+**Fixed Folder Mode response:**
+```json
+{
+  "public_id": "test/test",
+  "folder": "test",
+  ...
+}
+```
+
+**Dynamic Folder Mode response:**
+```json
+{
+  "public_id": "test/test",
+  "asset_folder": "test",
+  "display_name": "test",
+  ...
+}
+```
+
+### Method 2: Check Cloudinary Dashboard
+
+Cloudinary's documentation or support can confirm your account type.
+
+## Examples
+
+### Basic Setup with Dynamic Folder Mode
+
+```typescript
+import { buildConfig } from 'payload/config';
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+        api_key: process.env.CLOUDINARY_API_KEY!,
+        api_secret: process.env.CLOUDINARY_API_SECRET!,
+      },
+      collections: {
+        'media': true,
+      },
+      folder: 'my-payload-app',
+      // Dynamic Folder Mode enabled by default
+      supportDynamicFolderMode: true,
+    })
+  ]
+});
+```
+
+### Multi-Collection Setup
+
+Different folders for different collections:
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: {
+    'media': true,
+    'documents': true,
+    'avatars': true,
+  },
+  folder: 'my-app',
+  supportDynamicFolderMode: true,
+})
+```
+
+Results in:
+- Media: `my-app/media/...` (if using prefix)
+- Documents: `my-app/documents/...`
+- Avatars: `my-app/avatars/...`
+
+All with proper `asset_folder` parameter for Dynamic Folder Mode.
+
+### With Custom Public IDs
+
+Dynamic Folder Mode works seamlessly with custom public ID generation:
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  folder: 'my-app',
+  supportDynamicFolderMode: true,
+  publicID: {
+    generatePublicID: (filename, prefix, folder) => {
+      const sanitized = filename.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const timestamp = Date.now();
+      return `${folder}/${prefix || 'uploads'}/${sanitized}-${timestamp}`;
+    },
+  },
+})
+```
+
+The plugin automatically extracts the folder path from your custom public ID and sets the `asset_folder` parameter accordingly.
+
+## Comparison Table
+
+| Feature | Fixed Folder Mode | Dynamic Folder Mode |
+|---------|------------------|--------------------|
+| **Folder in UI** | Matches public ID path | Independent from public ID |
+| **Moving files in UI** | Changes public ID | Does not change public ID |
+| **API response** | `folder` field | `asset_folder` + `display_name` |
+| **URL stability** | URLs break when moved | URLs remain stable |
+| **Account type** | Older accounts | Newer accounts (2021+) |
+| **Plugin support** | Works with `supportDynamicFolderMode: true/false` | Requires `supportDynamicFolderMode: true` |
+
+## Migration Strategies
+
+### From Fixed to Dynamic Folder Mode
+
+If Cloudinary migrates your account:
+
+1. Update your plugin configuration (usually no change needed - it's enabled by default)
+2. Existing files continue to work
+3. New uploads use `asset_folder` parameter
+4. Gradually reorganize your Media Library UI without breaking URLs
+
+```typescript
+// No code changes needed - default settings handle both modes
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  folder: 'my-app',
+  // supportDynamicFolderMode: true is the default
+})
+```
+
+### Testing Both Modes
+
+For applications that need to work with both account types:
+
+```typescript
+const isDynamicMode = process.env.CLOUDINARY_DYNAMIC_MODE === 'true';
+
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  supportDynamicFolderMode: isDynamicMode,
+})
+```
+
+## Troubleshooting
+
+### Files Not Appearing in Expected Folders
+
+**Problem**: Files upload successfully but don't appear in the Media Library UI folders.
+
+**Solution**: Ensure `supportDynamicFolderMode: true` (it's the default):
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  folder: 'my-app',
+  supportDynamicFolderMode: true, // Explicitly enable
+})
+```
+
+### Public IDs Changing When Moving Files
+
+**Problem**: Moving files in Media Library changes their URLs.
+
+**Solution**: You're likely using Fixed Folder Mode. Either:
+
+1. Contact Cloudinary to migrate to Dynamic Folder Mode
+2. Avoid moving files in the UI
+3. Update references when moving files
+
+### Asset Folder vs Public ID Mismatch
+
+**Problem**: `asset_folder` doesn't match the public ID path.
+
+**Solution**: The plugin automatically extracts the folder from your public ID. If using custom `generatePublicID`, ensure it returns the full path:
+
+```typescript
+// Good: Returns full path
+generatePublicID: (filename, prefix, folder) => {
+  return `${folder}/subfolder/${filename}`; // Correct
+}
+
+// Bad: Returns only filename
+generatePublicID: (filename) => {
+  return filename; // Wrong - missing folder path
+}
+```
+
+## Best Practices
+
+### 1. Enable by Default
+
+Leave `supportDynamicFolderMode: true` (the default) for maximum compatibility:
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  // Don't disable unless you have a specific reason
+})
+```
+
+### 2. Consistent Folder Structure
+
+Use consistent folder naming across your application:
+
+```typescript
+const CLOUDINARY_FOLDER = 'my-app';
+
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  folder: CLOUDINARY_FOLDER,
+})
+```
+
+### 3. Document Your Structure
+
+Document your public ID and folder structure for your team:
+
+```typescript
+/**
+ * Cloudinary Organization:
+ * 
+ * Public IDs:
+ *   - Media: my-app/media/{filename}
+ *   - Documents: my-app/docs/{filename}
+ *   - Avatars: my-app/avatars/{filename}
+ * 
+ * Asset Folders (UI only):
+ *   - Organized by project/campaign
+ *   - Can be reorganized without breaking URLs
+ */
+cloudinaryStorage({ /* ... */ })
+```
+
+### 4. Test After Changes
+
+After updating folder configuration, verify:
+
+1. Files upload successfully
+2. Files appear in correct folders in Media Library UI
+3. Public IDs follow expected pattern
+4. URLs work correctly
+
+```typescript
+// Test upload
+const result = await payload.create({
+  collection: 'media',
+  data: { /* file data */ },
+});
+
+console.log('Public ID:', result.cloudinary.public_id);
+console.log('URL:', result.cloudinary.secure_url);
+```
+
+## Further Reading
+
+- [Cloudinary Dynamic Folder Mode Documentation](https://cloudinary.com/documentation/dynamic_folders)
+- [Public ID customization](/configuration/public-id)
+- [Basic configuration](/configuration/basic)
+
+<Note>
+  The plugin handles both Fixed and Dynamic Folder modes automatically when `supportDynamicFolderMode` is enabled. You don't need to know which mode your account uses.
+</Note>

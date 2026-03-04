@@ -1,0 +1,381 @@
+---
+title: 'Public ID Customization'
+description: 'Customize how Cloudinary public IDs are generated for better media organization'
+---
+
+Cloudinary uses public IDs to uniquely identify assets. The Payload Cloudinary plugin gives you complete control over how these IDs are generated, allowing you to organize your media library effectively.
+
+## What is a Public ID?
+
+A public ID is the unique identifier for an asset in Cloudinary. For example:
+- URL: `https://res.cloudinary.com/demo/image/upload/sample.jpg`
+- Public ID: `sample`
+
+With folders:
+- URL: `https://res.cloudinary.com/demo/image/upload/my-folder/sample.jpg`
+- Public ID: `my-folder/sample`
+
+## Configuration Options
+
+<ParamField path="publicID" type="PublicIDOptions">
+  Configuration object for customizing public ID generation.
+  
+  <ParamField path="publicID.enabled" type="boolean" default={true}>
+    Whether to enable custom public ID generation. When `false`, Cloudinary generates random IDs.
+  </ParamField>
+  
+  <ParamField path="publicID.useFilename" type="boolean" default={true}>
+    Whether to use the original filename as part of the public ID.
+  </ParamField>
+  
+  <ParamField path="publicID.uniqueFilename" type="boolean" default={true}>
+    Whether to add a random suffix to ensure unique filenames and prevent collisions.
+  </ParamField>
+  
+  <ParamField path="publicID.generatePublicID" type="(filename: string, prefix?: string, folder?: string) => string">
+    Custom function to generate public IDs. When provided, overrides `useFilename` and `uniqueFilename` options.
+  </ParamField>
+</ParamField>
+
+## Basic Usage
+
+### Default Behavior
+
+By default, the plugin generates public IDs using the filename with a unique suffix:
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: { /* ... */ },
+      collections: { 'media': true },
+      folder: 'my-app',
+      // Default publicID settings:
+      publicID: {
+        enabled: true,
+        useFilename: true,
+        uniqueFilename: true,
+      },
+    })
+  ]
+});
+```
+
+Example output:
+- Input: `photo.jpg`
+- Public ID: `my-app/photo_abc123.jpg`
+
+### Disable Unique Suffix
+
+If you want to use exact filenames (be careful of overwrites):
+
+```typescript
+publicID: {
+  enabled: true,
+  useFilename: true,
+  uniqueFilename: false, // No random suffix
+}
+```
+
+Example output:
+- Input: `photo.jpg`
+- Public ID: `my-app/photo.jpg`
+
+<Warning>
+  Setting `uniqueFilename: false` may cause files with the same name to overwrite each other. Use with caution.
+</Warning>
+
+### Random IDs Only
+
+Let Cloudinary generate completely random IDs:
+
+```typescript
+publicID: {
+  enabled: false, // Use Cloudinary's default random IDs
+}
+```
+
+Example output:
+- Public ID: `my-app/a8sd7f6g5h4j3k2l1`
+
+## Custom Generation Function
+
+For complete control, provide your own `generatePublicID` function:
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: { /* ... */ },
+      collections: { 'media': true },
+      folder: 'my-app',
+      publicID: {
+        generatePublicID: (filename, prefix, folder) => {
+          // Custom logic here
+          return `${folder}/custom-${filename}`;
+        },
+      },
+    })
+  ]
+});
+```
+
+### Function Parameters
+
+<ParamField path="filename" type="string">
+  The original filename of the uploaded file (e.g., `photo.jpg`)
+</ParamField>
+
+<ParamField path="prefix" type="string | undefined">
+  Optional prefix from the collection configuration
+</ParamField>
+
+<ParamField path="folder" type="string">
+  The base folder path from plugin configuration
+</ParamField>
+
+### Function Return Value
+
+The function must return a string representing the complete public ID (including folder path).
+
+## Advanced Examples
+
+### Timestamp-Based IDs
+
+Add timestamps for uniqueness and sorting:
+
+```typescript
+publicID: {
+  generatePublicID: (filename, prefix, folder) => {
+    const sanitizedName = filename
+      .toLowerCase()
+      .replace(/\.[^/.]+$/, '') // Remove extension
+      .replace(/[^a-z0-9]/g, '-') // Replace special chars
+      .replace(/-+/g, '-') // Remove duplicate hyphens
+      .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+    const timestamp = new Date().toISOString()
+      .replace(/[^0-9]/g, '')
+      .slice(0, 14); // YYYYMMDDHHmmss
+
+    const prefixPath = prefix ? `${prefix}/` : '';
+    return `${folder}/${prefixPath}${sanitizedName}_${timestamp}`;
+  },
+}
+```
+
+Example output:
+- Input: `My Photo.jpg`
+- Public ID: `my-app/my-photo_20240315143022`
+
+### Date-Based Folder Structure
+
+Organize by year/month:
+
+```typescript
+publicID: {
+  generatePublicID: (filename, prefix, folder) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    
+    const sanitized = filename
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-z0-9]/gi, '-')
+      .toLowerCase();
+    
+    const random = Math.random().toString(36).substring(2, 8);
+    
+    return `${folder}/${year}/${month}/${sanitized}_${random}`;
+  },
+}
+```
+
+Example output:
+- Input: `product-image.jpg`
+- Public ID: `my-app/2024/03/product-image_k7m9n2`
+
+### UUID-Based IDs
+
+Use UUIDs for guaranteed uniqueness:
+
+```typescript
+import { v4 as uuidv4 } from 'uuid';
+
+publicID: {
+  generatePublicID: (filename, prefix, folder) => {
+    const ext = filename.match(/\.[^/.]+$/)?.[0] || '';
+    const uuid = uuidv4();
+    const prefixPath = prefix ? `${prefix}/` : '';
+    
+    return `${folder}/${prefixPath}${uuid}${ext}`;
+  },
+}
+```
+
+Example output:
+- Input: `image.jpg`
+- Public ID: `my-app/a1b2c3d4-e5f6-4g7h-8i9j-k0l1m2n3o4p5.jpg`
+
+### Collection-Specific Prefixes
+
+Organize by collection type:
+
+```typescript
+publicID: {
+  generatePublicID: (filename, prefix, folder) => {
+    // Use prefix to determine subfolder
+    const subfolder = prefix || 'general';
+    
+    const sanitized = filename
+      .replace(/\.[^/.]+$/, '')
+      .replace(/\s+/g, '-')
+      .toLowerCase();
+    
+    const timestamp = Date.now();
+    
+    return `${folder}/${subfolder}/${sanitized}-${timestamp}`;
+  },
+}
+```
+
+Example output:
+- Input: `Avatar Image.png` with prefix: `avatars`
+- Public ID: `my-app/avatars/avatar-image-1710512345678`
+
+### Preserve Original Structure
+
+Keep the original filename structure intact:
+
+```typescript
+publicID: {
+  generatePublicID: (filename, prefix, folder) => {
+    // Keep original filename but ensure uniqueness
+    const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+    const ext = filename.match(/\.[^/.]+$/)?.[0] || '';
+    const random = Math.random().toString(36).substring(2, 6);
+    
+    const prefixPath = prefix ? `${prefix}/` : '';
+    return `${folder}/${prefixPath}${nameWithoutExt}-${random}${ext}`;
+  },
+}
+```
+
+Example output:
+- Input: `Company Logo.svg`
+- Public ID: `my-app/company-logo-k9m2.svg`
+
+## Best Practices
+
+### 1. Sanitize Filenames
+
+Always clean up filenames to avoid issues:
+
+```typescript
+const sanitize = (filename: string) => {
+  return filename
+    .toLowerCase()
+    .replace(/\.[^/.]+$/, '') // Remove extension
+    .replace(/[^a-z0-9]/g, '-') // Only alphanumeric and hyphens
+    .replace(/-+/g, '-') // No duplicate hyphens
+    .replace(/^-|-$/g, ''); // No leading/trailing hyphens
+};
+```
+
+### 2. Ensure Uniqueness
+
+Always add some form of unique identifier:
+
+```typescript
+// Option 1: Timestamp
+const unique = Date.now();
+
+// Option 2: Random string
+const unique = Math.random().toString(36).substring(2, 8);
+
+// Option 3: UUID
+import { v4 as uuidv4 } from 'uuid';
+const unique = uuidv4();
+```
+
+### 3. Consider SEO
+
+For public-facing images, keep filenames descriptive:
+
+```typescript
+publicID: {
+  generatePublicID: (filename, prefix, folder) => {
+    const seo = filename
+      .toLowerCase()
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .slice(0, 50); // Limit length
+    
+    const unique = Date.now();
+    return `${folder}/${seo}-${unique}`;
+  },
+}
+```
+
+### 4. Plan for Scale
+
+Organize files in a way that scales:
+
+```typescript
+// Good: Organized by date
+`my-app/2024/03/15/image-abc123`
+
+// Avoid: Flat structure with thousands of files
+`my-app/image-abc123`
+`my-app/image-abc124`
+`my-app/image-abc125`
+// ... thousands more
+```
+
+## Accessing Public IDs
+
+Once uploaded, access the public ID from your media documents:
+
+```typescript
+// Upload a file
+const media = await payload.create({
+  collection: 'media',
+  data: { /* file data */ },
+});
+
+// Access the public ID
+const publicId = media.cloudinary.public_id;
+console.log(publicId); // 'my-app/photo_abc123'
+
+// Use in Cloudinary transformations
+const transformedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_500,h_500,c_fill/${publicId}`;
+```
+
+## TypeScript Support
+
+The `generatePublicID` function has full type support:
+
+```typescript
+import type { PublicIDOptions } from 'payload-cloudinary';
+
+const publicIDConfig: PublicIDOptions = {
+  generatePublicID: (
+    filename: string,
+    prefix?: string,
+    folder?: string
+  ): string => {
+    // Your implementation
+    return `${folder}/${filename}`;
+  },
+};
+```
+
+## Next Steps
+
+- Learn about [versioning support](/configuration/versioning)
+- Configure [PDF thumbnails](/configuration/pdf-support)
+- Explore [dynamic folder mode](/configuration/dynamic-folders)

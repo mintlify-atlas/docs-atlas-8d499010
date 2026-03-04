@@ -1,0 +1,422 @@
+---
+title: Types
+description: TypeScript type definitions exported by the Payload Cloudinary plugin
+---
+
+## CloudinaryStorageOptions
+
+Main configuration options for the Cloudinary storage plugin.
+
+```typescript
+export type CloudinaryStorageOptions = {
+  collections: Partial<
+    Record<UploadCollectionSlug, Omit<CollectionOptions, "adapter"> | true>
+  >;
+  config: CloudinaryConfig;
+  folder?: string;
+  disableLocalStorage?: boolean;
+  enabled?: boolean;
+  versioning?: CloudinaryVersioningOptions;
+  publicID?: PublicIDOptions;
+  supportDynamicFolderMode?: boolean;
+  customFields?: Field[];
+  enablePDFThumbnails?: boolean;
+};
+```
+
+### Properties
+
+<ResponseField name="collections" type="Record<string, CollectionOptions | true>" required>
+  Collections to apply the Cloudinary adapter to. Key is the collection slug, value is either `true` or custom collection options.
+  
+  ```typescript
+  collections: {
+    media: true,
+    images: { disablePayloadAccessControl: true },
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="config" type="CloudinaryConfig" required>
+  Cloudinary API credentials. See [CloudinaryConfig](#cloudinaryconfig).
+</ResponseField>
+
+<ResponseField name="folder" type="string" default="payload-media">
+  Folder path in Cloudinary where files will be uploaded.
+</ResponseField>
+
+<ResponseField name="disableLocalStorage" type="boolean" default={true}>
+  Whether to disable local storage. Plugin automatically sets this to `true` for configured collections.
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean" default={true}>
+  Whether to enable the plugin. Set to `false` to disable without removing the plugin.
+</ResponseField>
+
+<ResponseField name="versioning" type="CloudinaryVersioningOptions">
+  Versioning configuration. See [CloudinaryVersioningOptions](#cloudinaryversioningoptions).
+</ResponseField>
+
+<ResponseField name="publicID" type="PublicIDOptions">
+  Public ID generation options. See [PublicIDOptions](#publicidoptions).
+</ResponseField>
+
+<ResponseField name="supportDynamicFolderMode" type="boolean" default={true}>
+  Support for Dynamic Folder Mode. Uses `asset_folder` parameter in upload to ensure correct folder display in Cloudinary Media Library.
+</ResponseField>
+
+<ResponseField name="customFields" type="Field[]">
+  Additional custom Payload fields to add to media collections. These are merged with default Cloudinary fields.
+  
+  ```typescript
+  customFields: [
+    { name: 'alt', type: 'text' },
+    { name: 'caption', type: 'textarea' },
+  ]
+  ```
+</ResponseField>
+
+<ResponseField name="enablePDFThumbnails" type="boolean" default={true}>
+  Enable automatic PDF thumbnail generation in the admin UI.
+</ResponseField>
+
+---
+
+## CloudinaryConfig
+
+Cloudinary API credentials configuration.
+
+```typescript
+export type CloudinaryConfig = {
+  cloud_name: string;
+  api_key: string;
+  api_secret: string;
+};
+```
+
+### Properties
+
+<ResponseField name="cloud_name" type="string" required>
+  Your Cloudinary cloud name. Find this in your Cloudinary dashboard.
+</ResponseField>
+
+<ResponseField name="api_key" type="string" required>
+  Your Cloudinary API key.
+</ResponseField>
+
+<ResponseField name="api_secret" type="string" required>
+  Your Cloudinary API secret. Keep this secure and use environment variables.
+</ResponseField>
+
+### Example
+
+```typescript
+config: {
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+}
+```
+
+---
+
+## CloudinaryMetadata
+
+Metadata stored in Payload documents for Cloudinary assets.
+
+```typescript
+export type CloudinaryMetadata = {
+  public_id: string;
+  resource_type: string;
+  format: string;
+  secure_url: string;
+  bytes: number;
+  created_at: string;
+  duration?: number;
+  width?: number;
+  height?: number;
+  eager?: any[];
+  version?: string;
+  version_id?: string;
+  pages?: number;
+  selected_page?: number;
+  thumbnail_url?: string;
+  type?: string;
+};
+```
+
+### Properties
+
+<ResponseField name="public_id" type="string" required>
+  The public identifier for the asset in Cloudinary.
+</ResponseField>
+
+<ResponseField name="resource_type" type="string" required>
+  Type of resource: `"image"`, `"video"`, `"raw"`, or `"auto"`.
+</ResponseField>
+
+<ResponseField name="format" type="string" required>
+  File format (e.g., `"jpg"`, `"png"`, `"pdf"`, `"mp4"`).
+</ResponseField>
+
+<ResponseField name="secure_url" type="string" required>
+  HTTPS URL to access the asset.
+</ResponseField>
+
+<ResponseField name="bytes" type="number" required>
+  File size in bytes.
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO 8601 timestamp of when the asset was created.
+</ResponseField>
+
+<ResponseField name="duration" type="number">
+  Duration in seconds (for video and audio files).
+</ResponseField>
+
+<ResponseField name="width" type="number">
+  Width in pixels (for images and videos).
+</ResponseField>
+
+<ResponseField name="height" type="number">
+  Height in pixels (for images and videos).
+</ResponseField>
+
+<ResponseField name="eager" type="any[]">
+  Eager transformations applied to the asset.
+</ResponseField>
+
+<ResponseField name="version" type="string">
+  Cloudinary version identifier.
+</ResponseField>
+
+<ResponseField name="version_id" type="string">
+  Unique version ID (when versioning is enabled).
+</ResponseField>
+
+<ResponseField name="pages" type="number">
+  Number of pages (for PDF files).
+</ResponseField>
+
+<ResponseField name="selected_page" type="number">
+  Selected page for thumbnail generation (for PDF files).
+</ResponseField>
+
+<ResponseField name="thumbnail_url" type="string">
+  Direct URL to the asset thumbnail.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Upload type: `"upload"`, `"private"`, or `"authenticated"`.
+</ResponseField>
+
+---
+
+## CloudinaryVersioningOptions
+
+Configuration for Cloudinary versioning features.
+
+```typescript
+export type CloudinaryVersioningOptions = {
+  enabled?: boolean;
+  autoInvalidate?: boolean;
+  storeHistory?: boolean;
+};
+```
+
+### Properties
+
+<ResponseField name="enabled" type="boolean" default={false}>
+  Whether to enable versioning support.
+</ResponseField>
+
+<ResponseField name="autoInvalidate" type="boolean" default={false}>
+  Whether to automatically invalidate old versions in CDN cache.
+</ResponseField>
+
+<ResponseField name="storeHistory" type="boolean" default={false}>
+  Whether to store version history in Payload CMS. When `true`, adds a `versions` field to track all versions.
+</ResponseField>
+
+### Example
+
+```typescript
+versioning: {
+  enabled: true,
+  storeHistory: true,
+  autoInvalidate: true,
+}
+```
+
+---
+
+## PublicIDOptions
+
+Options for customizing Cloudinary public ID generation.
+
+```typescript
+export type PublicIDOptions = {
+  enabled?: boolean;
+  useFilename?: boolean;
+  uniqueFilename?: boolean;
+  generatePublicID?: (
+    filename: string,
+    prefix?: string,
+    folder?: string,
+  ) => string;
+};
+```
+
+### Properties
+
+<ResponseField name="enabled" type="boolean" default={true}>
+  Whether to enable custom public ID generation.
+</ResponseField>
+
+<ResponseField name="useFilename" type="boolean" default={true}>
+  Whether to use the original filename as part of the public ID.
+</ResponseField>
+
+<ResponseField name="uniqueFilename" type="boolean" default={true}>
+  Whether to ensure unique filenames by adding a random suffix.
+</ResponseField>
+
+<ResponseField name="generatePublicID" type="function">
+  Custom function to generate a public ID. If provided, overrides `useFilename` and `uniqueFilename`.
+  
+  **Parameters:**
+  - `filename` (string): The original filename
+  - `prefix` (string | undefined): The file prefix (if any)
+  - `folder` (string | undefined): The base folder
+  
+  **Returns:** string - The public ID to use
+  
+  ```typescript
+  generatePublicID: (filename, prefix, folder) => {
+    const timestamp = Date.now();
+    const name = filename.replace(/\.[^/.]+$/, '');
+    return `${folder}/${prefix}-${name}-${timestamp}`;
+  }
+  ```
+</ResponseField>
+
+---
+
+## PayloadDocument
+
+Simplified Payload document type for use with thumbnails and transformations.
+
+```typescript
+export interface PayloadDocument {
+  id?: string;
+  filename?: string;
+  cloudinary?: CloudinaryMetadata;
+  sizes?: Record<string, { url: string; width: number; height: number }>;
+  [key: string]: any;
+}
+```
+
+### Properties
+
+<ResponseField name="id" type="string">
+  Payload document ID.
+</ResponseField>
+
+<ResponseField name="filename" type="string">
+  Original filename of the uploaded asset.
+</ResponseField>
+
+<ResponseField name="cloudinary" type="CloudinaryMetadata">
+  Cloudinary metadata object. See [CloudinaryMetadata](#cloudinarymetadata).
+</ResponseField>
+
+<ResponseField name="sizes" type="Record<string, object>">
+  Image size variations (for Payload image resizing).
+  
+  Each size object contains:
+  - `url` (string): URL to the sized image
+  - `width` (number): Width in pixels
+  - `height` (number): Height in pixels
+</ResponseField>
+
+---
+
+## CloudinaryAdapter
+
+Type alias for the Cloudinary storage adapter.
+
+```typescript
+export type CloudinaryAdapter = Adapter;
+```
+
+This is an alias for the `Adapter` type from `@payloadcms/plugin-cloud-storage/types`.
+
+---
+
+## CloudinaryStoragePlugin
+
+Type for the main plugin function.
+
+```typescript
+export type CloudinaryStoragePlugin = (
+  cloudinaryArgs: CloudinaryStorageOptions,
+) => Plugin;
+```
+
+A function that accepts [CloudinaryStorageOptions](#cloudinarystorageoptions) and returns a Payload [Plugin](https://payloadcms.com/docs/configuration/plugins).
+
+---
+
+## Advanced Types
+
+### GenerateURLParams
+
+Extended parameters for URL generation with Cloudinary-specific options.
+
+```typescript
+export type GenerateURLParams = Parameters<GenerateURL>[0] & {
+  version?: string | number;
+  pdf_page?: number;
+  format?: string;
+};
+```
+
+<ResponseField name="version" type="string | number">
+  Specific version to retrieve.
+</ResponseField>
+
+<ResponseField name="pdf_page" type="number">
+  Page number for PDF thumbnails.
+</ResponseField>
+
+<ResponseField name="format" type="string">
+  Target format for conversion (e.g., `"jpg"`, `"png"`, `"webp"`).
+</ResponseField>
+
+### CloudinaryURLResponse
+
+Response object from URL generation.
+
+```typescript
+export type CloudinaryURLResponse = {
+  url: string;
+  public_id: string;
+};
+```
+
+<ResponseField name="url" type="string">
+  Generated Cloudinary URL.
+</ResponseField>
+
+<ResponseField name="public_id" type="string">
+  Public ID of the asset.
+</ResponseField>
+
+---
+
+## See Also
+
+- [cloudinaryStorage](/api/cloudinary-storage)
+- [generateMediaCollection](/api/generate-media-collection)
+- [Configuration Guide](/configuration)

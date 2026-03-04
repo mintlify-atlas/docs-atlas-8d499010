@@ -1,0 +1,376 @@
+---
+title: Payload Cloudinary
+description: A powerful Cloudinary storage plugin for Payload CMS with advanced versioning, custom fields, and PDF support
+mode: "custom"
+---
+
+<div className="bg-[#020627] dark:bg-[#020627] -mx-8 -mt-8 mb-0 px-8 py-16 md:py-20">
+  <div className="max-w-6xl mx-auto">
+    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+      Payload Cloudinary
+    </h1>
+    <p className="text-lg md:text-xl text-gray-300 mb-8 max-w-3xl">
+      Seamlessly integrate Cloudinary storage with Payload CMS. Enhanced support for versioning, custom fields, public ID control, and advanced PDF handling.
+    </p>
+    <div className="flex flex-col sm:flex-row gap-4">
+      <a
+        href="/installation"
+        className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-[#529c3a] hover:bg-[#4a8c34] text-white font-medium transition-colors"
+      >
+        Get Started
+        <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </a>
+      <a
+        href="https://github.com/syedmuzamilm/payload-cloudinary"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors border border-white/20"
+      >
+        <svg className="mr-2 w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+        </svg>
+        View on GitHub
+      </a>
+    </div>
+  </div>
+</div>
+
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+
+## Quick Start
+
+<Steps>
+  <Step title="Install the plugin">
+    Install `payload-cloudinary` using your preferred package manager:
+
+    ```bash
+    npm install payload-cloudinary
+    # or
+    yarn add payload-cloudinary
+    # or
+    pnpm add payload-cloudinary
+    # or
+    bun add payload-cloudinary
+    ```
+  </Step>
+
+  <Step title="Configure your Payload setup">
+    Add the plugin to your Payload configuration with your Cloudinary credentials:
+
+    ```typescript
+    import { buildConfig } from 'payload/config';
+    import { cloudinaryStorage } from 'payload-cloudinary';
+
+    export default buildConfig({
+      // ... your payload config
+      plugins: [
+        cloudinaryStorage({
+          config: {
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET
+          },
+          collections: {
+            'media': true, // Enable for media collection
+          },
+          folder: 'payload-media', // Optional folder name
+        })
+      ]
+    });
+    ```
+  </Step>
+
+  <Step title="Start uploading to Cloudinary">
+    Your media files are now automatically stored in Cloudinary. Access Cloudinary metadata in your documents:
+
+    ```typescript
+    const doc = await payload.findByID({
+      collection: 'media',
+      id: 'your-doc-id',
+    });
+
+    // Access Cloudinary metadata
+    const { public_id, secure_url, format } = doc.cloudinary;
+    console.log(`File URL: ${secure_url}`);
+    ```
+  </Step>
+</Steps>
+
+## Features
+
+<CardGroup cols={3}>
+  <Card title="Cloudinary Integration" icon="cloud">
+    Seamless integration with Cloudinary for robust cloud storage. Automatic file uploads, deletions, and URL generation.
+  </Card>
+
+  <Card title="Versioning Support" icon="clock-rotate-left">
+    Advanced versioning with history tracking. Keep track of file changes with automatic CDN invalidation support.
+  </Card>
+
+  <Card title="PDF Support" icon="file-pdf">
+    Enhanced PDF handling with automatic page count detection, thumbnail generation, and page selection.
+  </Card>
+
+  <Card title="Custom Fields" icon="sliders">
+    Add custom fields to your media collections. Support for alt text, captions, tags, and any custom metadata.
+  </Card>
+
+  <Card title="Public ID Control" icon="fingerprint">
+    Customize how Cloudinary public IDs are generated. Use filenames, add unique suffixes, or create custom generators.
+  </Card>
+
+  <Card title="Dynamic Folders" icon="folder-tree">
+    Support for both Fixed and Dynamic Folder Modes. Organize assets with customizable folder structures.
+  </Card>
+</CardGroup>
+
+## Key Highlights
+
+### Advanced Versioning
+
+Enable versioning to track file changes and maintain history:
+
+```typescript
+cloudinaryStorage({
+  versioning: {
+    enabled: true,
+    autoInvalidate: true, // Invalidate old versions in CDN
+    storeHistory: true,   // Store version history in database
+  },
+})
+```
+
+Access version history in your documents:
+
+```typescript
+// Access all versions
+doc.versions?.forEach(version => {
+  console.log(`Version ${version.version} created at ${version.created_at}`);
+  console.log(`URL: ${version.secure_url}`);
+});
+```
+
+### Custom Public IDs
+
+Control how Cloudinary generates public IDs for better media organization:
+
+```typescript
+cloudinaryStorage({
+  publicID: {
+    enabled: true,
+    useFilename: true,
+    uniqueFilename: true,
+    // Custom generator function
+    generatePublicID: (filename, prefix, folder) => {
+      const sanitizedName = filename
+        .toLowerCase()
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-z0-9]/g, '-');
+      
+      const timestamp = new Date().toISOString()
+        .replace(/[^0-9]/g, '').slice(0, 14);
+      
+      return `${folder}/${sanitizedName}_${timestamp}`;
+    },
+  },
+})
+```
+
+### PDF Features
+
+Automatic PDF page count, thumbnail generation, and page selection:
+
+```jsx
+const PDFViewer = ({ media }) => {
+  const { public_id, pages, selected_page } = media.cloudinary;
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const page = selected_page || 1;
+
+  return (
+    <div>
+      <img
+        src={`https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_300,h_400,c_fill,q_auto,f_jpg/${public_id}.pdf`}
+        alt={`PDF Page ${page}`}
+      />
+      <p>Page {page} of {pages}</p>
+    </div>
+  );
+};
+```
+
+### Custom Fields
+
+Add custom fields to your media collections:
+
+```typescript
+cloudinaryStorage({
+  customFields: [
+    {
+      name: 'alt',
+      type: 'text',
+      label: 'Alt Text',
+      admin: {
+        description: 'Alternative text for accessibility',
+      },
+    },
+    {
+      name: 'caption',
+      type: 'text',
+      label: 'Caption',
+    },
+    {
+      name: 'tags',
+      type: 'array',
+      label: 'Tags',
+      fields: [
+        {
+          name: 'tag',
+          type: 'text',
+          required: true,
+        },
+      ],
+    },
+  ],
+})
+```
+
+## Documentation
+
+<CardGroup cols={2}>
+  <Card
+    title="Installation & Setup"
+    icon="download"
+    href="/installation"
+  >
+    Get started with installation instructions and environment setup
+  </Card>
+
+  <Card
+    title="Configuration Guide"
+    icon="gear"
+    href="/configuration/basic"
+  >
+    Learn about basic and advanced configuration options
+  </Card>
+
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/cloudinary-storage"
+  >
+    Complete API documentation for all plugin options
+  </Card>
+
+  <Card
+    title="Frontend Integration"
+    icon="window"
+    href="/guides/frontend-integration"
+  >
+    Learn how to use Cloudinary URLs in your frontend
+  </Card>
+</CardGroup>
+
+## What's Included
+
+The plugin automatically adds Cloudinary metadata to your media documents:
+
+```typescript
+{
+  // Standard Payload fields
+  id: string;
+  filename: string;
+  mimeType: string;
+  filesize: number;
+  
+  // Cloudinary metadata
+  cloudinary: {
+    public_id: string;
+    resource_type: string;
+    format: string;
+    secure_url: string;
+    bytes: number;
+    created_at: string;
+    version: string;
+    version_id: string;
+    width?: number;
+    height?: number;
+    
+    // PDF-specific (if applicable)
+    pages?: number;
+    selected_page?: number;
+    thumbnail_url?: string;
+  };
+  
+  // Version history (if enabled)
+  versions?: Array<{
+    version: string;
+    version_id: string;
+    created_at: string;
+    secure_url: string;
+  }>;
+}
+```
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card
+    title="GitHub Issues"
+    icon="github"
+    href="https://github.com/syedmuzamilm/payload-cloudinary/issues"
+  >
+    Report bugs or request features
+  </Card>
+
+  <Card
+    title="Contact"
+    icon="envelope"
+    href="https://x.com/syedmuzamilm"
+  >
+    Get in touch with the author
+  </Card>
+</CardGroup>
+
+</div>
+
+<style jsx>{`
+  .bg-\\[\\#020627\\] {
+    background-color: #020627;
+  }
+  
+  .text-white {
+    color: #ffffff;
+  }
+  
+  .text-gray-300 {
+    color: #d1d5db;
+  }
+  
+  .bg-\\[\\#529c3a\\] {
+    background-color: #529c3a;
+  }
+  
+  .hover\\:bg-\\[\\#4a8c34\\]:hover {
+    background-color: #4a8c34;
+  }
+  
+  .bg-white\\/10 {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .hover\\:bg-white\\/20:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  .border-white\\/20 {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .dark\\:bg-\\[\\#020627\\] {
+      background-color: #020627;
+    }
+  }
+`}</style>

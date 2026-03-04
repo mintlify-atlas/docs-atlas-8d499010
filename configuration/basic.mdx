@@ -1,0 +1,223 @@
+---
+title: 'Basic Configuration'
+description: 'Configure the essential options for Payload Cloudinary plugin'
+---
+
+The Payload Cloudinary plugin requires a few essential configuration options to connect to your Cloudinary account and specify which collections should use Cloudinary storage.
+
+## Required Configuration
+
+### Cloudinary Credentials
+
+The `config` object contains your Cloudinary API credentials. These are required for the plugin to authenticate with Cloudinary.
+
+<ParamField path="config" type="CloudinaryConfig" required>
+  Cloudinary API credentials object
+  
+  <ParamField path="config.cloud_name" type="string" required>
+    Your Cloudinary cloud name. Find this in your Cloudinary dashboard.
+  </ParamField>
+  
+  <ParamField path="config.api_key" type="string" required>
+    Your Cloudinary API key. Generate this in your Cloudinary console.
+  </ParamField>
+  
+  <ParamField path="config.api_secret" type="string" required>
+    Your Cloudinary API secret. Keep this secure and never expose it in client-side code.
+  </ParamField>
+</ParamField>
+
+<CodeGroup>
+```typescript Basic Setup
+import { buildConfig } from 'payload/config';
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  // ... your payload config
+  plugins: [
+    cloudinaryStorage({
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+      },
+      collections: {
+        'media': true,
+      },
+    })
+  ]
+});
+```
+
+```typescript Multiple Collections
+import { buildConfig } from 'payload/config';
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+      },
+      collections: {
+        'media': true,
+        'documents': true,
+        'avatars': true,
+      },
+    })
+  ]
+});
+```
+</CodeGroup>
+
+<Warning>
+  Never hardcode your Cloudinary credentials in your source code. Always use environment variables to keep them secure.
+</Warning>
+
+## Collections
+
+<ParamField path="collections" type="Record<string, CollectionOptions | true>" required>
+  Object mapping collection slugs to their Cloudinary configuration. Use `true` for default settings or provide a `CollectionOptions` object for advanced configuration.
+</ParamField>
+
+The `collections` option specifies which Payload collections should use Cloudinary for file storage. You can:
+
+- Use `true` for default behavior
+- Pass a `CollectionOptions` object for advanced configuration (from `@payloadcms/plugin-cloud-storage`)
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: {
+    'media': true, // Use defaults
+    'documents': {
+      // Advanced options from cloud storage plugin
+      generateFileURL: (args) => {
+        // Custom URL generation logic
+        return args.filename;
+      },
+    },
+  },
+})
+```
+
+## Folder Structure
+
+<ParamField path="folder" type="string" default="payload-media">
+  The base folder path in Cloudinary where uploaded files will be stored.
+</ParamField>
+
+Organize your media files in Cloudinary by specifying a folder path:
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  folder: 'my-app/uploads', // Files will be stored under this folder
+})
+```
+
+With a custom folder:
+- Files upload to: `my-app/uploads/filename.jpg`
+- Public IDs become: `my-app/uploads/filename`
+- Easy to organize multiple projects in one Cloudinary account
+
+## Local Storage
+
+<ParamField path="disableLocalStorage" type="boolean" default={true}>
+  Whether to disable local file storage. When `true`, files are only stored in Cloudinary.
+</ParamField>
+
+By default, the plugin disables local storage to save disk space. All files are uploaded directly to Cloudinary.
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  disableLocalStorage: true, // Default - files only in Cloudinary
+})
+```
+
+<Note>
+  When `disableLocalStorage` is `true`, the plugin automatically sets `upload.disableLocalStorage` to `true` for all configured collections.
+</Note>
+
+## Plugin Toggle
+
+<ParamField path="enabled" type="boolean" default={true}>
+  Whether to enable the plugin. Set to `false` to disable Cloudinary storage without removing the plugin configuration.
+</ParamField>
+
+Useful for conditional enabling based on environment:
+
+```typescript
+cloudinaryStorage({
+  config: { /* ... */ },
+  collections: { 'media': true },
+  enabled: process.env.NODE_ENV === 'production', // Only in production
+})
+```
+
+## Complete Basic Example
+
+Here's a complete example with all basic configuration options:
+
+```typescript
+import { buildConfig } from 'payload/config';
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  serverURL: process.env.PAYLOAD_PUBLIC_SERVER_URL,
+  collections: [
+    // Your collections
+  ],
+  plugins: [
+    cloudinaryStorage({
+      // Required: Cloudinary credentials
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+        api_key: process.env.CLOUDINARY_API_KEY!,
+        api_secret: process.env.CLOUDINARY_API_SECRET!,
+      },
+      
+      // Required: Collections to use Cloudinary
+      collections: {
+        'media': true,
+        'documents': true,
+      },
+      
+      // Optional: Custom folder
+      folder: 'my-payload-app',
+      
+      // Optional: Disable local storage (default: true)
+      disableLocalStorage: true,
+      
+      // Optional: Enable/disable plugin (default: true)
+      enabled: true,
+    })
+  ]
+});
+```
+
+## Environment Variables
+
+Create a `.env` file with your Cloudinary credentials:
+
+```bash
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+```
+
+<Warning>
+  Add `.env` to your `.gitignore` to prevent committing credentials to version control.
+</Warning>
+
+## Next Steps
+
+- [Add custom fields](/configuration/custom-fields) to your media collection
+- [Customize public IDs](/configuration/public-id) for better media organization
+- [Enable versioning](/configuration/versioning) to track file changes
+- [Configure PDF support](/configuration/pdf-support) for document thumbnails

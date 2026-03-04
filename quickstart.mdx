@@ -1,80 +1,241 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get started with Payload Cloudinary in minutes"
 ---
 
-## Get started in three steps
+## Get up and running with Payload Cloudinary
 
-Get your documentation site running locally and make your first customization.
+This guide will help you integrate Cloudinary storage into your Payload CMS project and upload your first file.
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Install the package">
+    Install the Payload Cloudinary plugin using your preferred package manager:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    <CodeGroup>
+      ```bash npm
+      npm install payload-cloudinary
+      ```
 
-### Step 2: Deploy your changes
+      ```bash yarn
+      yarn add payload-cloudinary
+      ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+      ```bash pnpm
+      pnpm add payload-cloudinary
+      ```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+      ```bash bun
+      bun add payload-cloudinary
+      ```
+    </CodeGroup>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    <Note>
+      The plugin requires `@payloadcms/plugin-cloud-storage` as a peer dependency, which should already be available in your Payload CMS project.
+    </Note>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Configure Cloudinary credentials">
+    Add your Cloudinary credentials to your environment variables. Create or update your `.env` file:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```bash .env
+    CLOUDINARY_CLOUD_NAME=your_cloud_name
+    CLOUDINARY_API_KEY=your_api_key
+    CLOUDINARY_API_SECRET=your_api_secret
+    ```
+
+    <Tip>
+      You can find these credentials in your [Cloudinary Dashboard](https://console.cloudinary.com/) under **Dashboard > Account Details**.
+    </Tip>
+
+    <Warning>
+      Never commit your `.env` file to version control. Add it to your `.gitignore` file to keep your credentials secure.
+    </Warning>
+  </Step>
+
+  <Step title="Add plugin to your Payload configuration">
+    Import and configure the plugin in your `payload.config.ts`:
+
+    ```typescript payload.config.ts
+    import { buildConfig } from 'payload/config';
+    import { cloudinaryStorage } from 'payload-cloudinary';
+
+    export default buildConfig({
+      // ... your other config options
+      plugins: [
+        cloudinaryStorage({
+          config: {
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET
+          },
+          collections: {
+            'media': true, // Enable for your media collection
+          },
+          folder: 'payload-media', // Optional: Cloudinary folder name
+        })
+      ]
+    });
+    ```
+
+    <Note>
+      The plugin automatically:
+      - Disables local storage for specified collections
+      - Adds Cloudinary metadata fields to your media documents
+      - Handles file uploads, deletions, and URL generation
+    </Note>
+
+    <Tip>
+      If you have multiple upload collections (like `media` and `documents`), you can enable Cloudinary for each:
+      ```typescript
+      collections: {
+        'media': true,
+        'documents': true,
+      }
+      ```
+    </Tip>
+  </Step>
+
+  <Step title="Upload a test file">
+    Start your Payload dev server and test the integration:
+
+    ```bash Terminal
+    npm run dev
+    ```
+
+    Then upload a file through the Payload admin panel:
+
+    1. Navigate to your **Media** collection in the admin UI
+    2. Click **Create New**
+    3. Upload an image or PDF file
+    4. Save the document
+
+    <Tip>
+      The file will be automatically uploaded to Cloudinary and stored in the folder you specified (default: `payload-media`).
+    </Tip>
+  </Step>
+
+  <Step title="Access Cloudinary metadata">
+    After uploading, your media documents will include comprehensive Cloudinary metadata:
+
+    ```typescript
+    const doc = await payload.findByID({
+      collection: 'media',
+      id: 'your-doc-id',
+    });
+
+    // Access Cloudinary metadata
+    console.log(doc.cloudinary);
+    ```
+
+    The `cloudinary` field contains:
+
+    ```typescript
+    {
+      public_id: string;        // Cloudinary public ID
+      resource_type: string;    // 'image', 'video', or 'raw'
+      format: string;           // File extension (jpg, png, pdf, etc.)
+      secure_url: string;       // Full HTTPS URL
+      bytes: number;            // File size in bytes
+      created_at: string;       // Upload timestamp
+      version: string;          // Current version number
+      version_id: string;       // Current version ID
+      width?: number;           // For images and videos
+      height?: number;          // For images and videos
+      duration?: number;        // For videos only
+      pages?: number;           // For PDFs only
+      selected_page?: number;   // For PDFs only (thumbnail page)
+    }
+    ```
+
+    <Tip>
+      Use the `public_id` to build custom Cloudinary transformation URLs in your frontend:
+      ```javascript
+      const transformedUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_400,h_300,c_fill/${doc.cloudinary.public_id}.${doc.cloudinary.format}`;
+      ```
+    </Tip>
+  </Step>
+</Steps>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
+Now that you have Payload Cloudinary working, explore these advanced features:
 
 <CardGroup cols={2}>
+  <Card title="Basic Configuration" icon="gear" href="/configuration/basic">
+    Customize folder structure, public IDs, and storage options
+  </Card>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+  <Card title="Custom Fields" icon="list" href="/configuration/custom-fields">
+    Add custom fields like alt text, captions, and tags to your media
+  </Card>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+  <Card title="PDF Support" icon="file-pdf" href="/configuration/pdf-support">
+    Enable PDF thumbnail generation and page selection
+  </Card>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Versioning" icon="clock-rotate-left" href="/configuration/versioning">
+    Track file changes with version history
+  </Card>
 </CardGroup>
 
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Files are still being saved locally">
+    The plugin sets `disableLocalStorage: true` automatically. If files are still being saved locally:
+
+    - Verify the plugin is properly configured in `payload.config.ts`
+    - Ensure the collection slug in `collections` matches your Media collection exactly
+    - Restart your dev server after making configuration changes
+    - Check that you don't have conflicting upload configurations
+  </Accordion>
+
+  <Accordion title="Cloudinary credentials not working">
+    If you're getting authentication errors:
+
+    - Double-check your credentials in the Cloudinary dashboard
+    - Ensure there are no extra spaces in your `.env` file
+    - Verify environment variables are loaded correctly with `console.log(process.env.CLOUDINARY_CLOUD_NAME)`
+    - Try regenerating your API secret if the issue persists
+  </Accordion>
+
+  <Accordion title="Files not appearing in Cloudinary folder">
+    For newer Cloudinary accounts using Dynamic Folder Mode:
+
+    - The plugin automatically supports Dynamic Folder Mode by default
+    - Files will appear in the folder specified by the `folder` option
+    - If assets aren't showing up in the Media Library, verify the `folder` parameter in your config
+    - You can disable Dynamic Folder Mode support with `supportDynamicFolderMode: false` if needed
+  </Accordion>
+
+  <Accordion title="Custom fields not showing in admin panel">
+    If your custom fields aren't appearing:
+
+    - Verify the collection slug in your plugin config matches exactly with your Media collection slug
+    - Ensure the plugin is registered before collections are processed
+    - Try restarting your development server
+    - Check for field name conflicts with existing fields
+    - Add debug logging to verify fields are being added:
+      ```typescript
+      onInit: async (payload) => {
+        console.log('Media fields:', 
+          payload.collections['media'].config.fields.map(f => f.name)
+        );
+      }
+      ```
+  </Accordion>
+
+  <Accordion title="PDF thumbnails not generating">
+    For PDF files:
+
+    - Ensure PDF support is not disabled: `enablePDFThumbnails` should not be set to `false`
+    - Check that the `cloudinary.public_id` field is populated after upload
+    - Verify the PDF was successfully uploaded to Cloudinary
+    - The `pages` field should be automatically populated with the page count
+    - Use `selected_page` to choose which page to display as a thumbnail (defaults to 1)
+  </Accordion>
+</AccordionGroup>
+
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  For more detailed troubleshooting, check the [complete configuration documentation](/configuration/basic) or reach out to [Syed Muzamil](https://x.com/syedmuzamilm) for support.
 </Note>

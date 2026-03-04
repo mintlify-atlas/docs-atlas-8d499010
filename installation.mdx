@@ -1,0 +1,88 @@
+---
+title: Installation
+description: Install payload-cloudinary and configure your Cloudinary credentials
+---
+
+## Install the Package
+
+Install `payload-cloudinary` using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install payload-cloudinary
+```
+
+```bash yarn
+yarn add payload-cloudinary
+```
+
+```bash pnpm
+pnpm add payload-cloudinary
+```
+
+```bash bun
+bun add payload-cloudinary
+```
+
+</CodeGroup>
+
+## Peer Dependencies
+
+This plugin requires the following peer dependencies:
+
+- `payload` ^2.0.0
+- `typescript` ^5.0.0
+
+<Note>
+Most Payload CMS projects will already have these dependencies installed. The plugin will automatically use your existing Payload and TypeScript installations.
+</Note>
+
+## Node Version Requirement
+
+Ensure you're running Node.js version 18.0.0 or higher:
+
+```bash
+node --version
+```
+
+## Configure Environment Variables
+
+Create or update your `.env` file with your Cloudinary credentials:
+
+```bash .env
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+<Warning>
+Never commit your `.env` file to version control. Add it to your `.gitignore` file to keep your credentials secure.
+</Warning>
+
+### Getting Your Cloudinary Credentials
+
+You can find your Cloudinary credentials in your [Cloudinary Console Dashboard](https://console.cloudinary.com/):
+
+1. Log in to your Cloudinary account
+2. Navigate to the Dashboard
+3. Your Cloud Name, API Key, and API Secret are displayed in the "Account Details" section
+
+<Tip>
+If you don't have a Cloudinary account yet, you can [sign up for free](https://cloudinary.com/users/register/free) to get started.
+</Tip>
+
+## TypeScript Configuration
+
+This plugin is built with TypeScript and includes full type definitions. No additional TypeScript configuration is required.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Get up and running with a basic configuration
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/basic">
+    Explore all available configuration options
+  </Card>
+</CardGroup>

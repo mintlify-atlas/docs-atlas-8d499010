@@ -1,0 +1,446 @@
+---
+title: Creating Custom Media Collections
+description: Use generateMediaCollection to create fully customized media collections with hooks, fields, and admin configuration
+---
+
+While the plugin automatically enhances your media collections, you may need more control over the collection configuration. The `generateMediaCollection` utility allows you to create custom media collections with full control over hooks, fields, access control, and admin settings.
+
+## When to Use generateMediaCollection
+
+Use `generateMediaCollection` when you need to:
+
+- Add custom hooks (beforeChange, afterRead, etc.)
+- Configure custom access control rules
+- Customize admin UI settings (grouping, descriptions, etc.)
+- Override default collection behavior
+- Create multiple media collections with different configurations
+
+## Basic Usage
+
+The `generateMediaCollection` function is defined in `src/collections/Media/index.ts:10-46`:
+
+```typescript
+import { generateMediaCollection, cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  // ... your other config
+  plugins: [
+    // Register the plugin without auto-creating collections
+    cloudinaryStorage({
+      config: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      },
+      collections: {}, // No collections here
+    }),
+  ],
+  collections: [
+    // Create a custom media collection
+    generateMediaCollection(
+      {
+        config: {
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET,
+        },
+        folder: 'my-payload-cms',
+      },
+      // Additional collection configuration
+      {
+        admin: {
+          description: 'Media files stored in Cloudinary',
+          group: 'Content',
+        },
+      }
+    ),
+    // Your other collections
+  ],
+})
+```
+
+## Function Signature
+
+```typescript
+export const generateMediaCollection = (
+  cloudinaryOptions: CloudinaryStorageOptions,
+  collectionConfig: Partial<CollectionConfig> = {},
+): CollectionConfig
+```
+
+**Parameters:**
+- `cloudinaryOptions`: Cloudinary configuration (config, folder, versioning, publicID, etc.)
+- `collectionConfig`: Partial Payload collection config to merge with defaults
+
+**Returns:** A complete `CollectionConfig` ready to use in your Payload configuration
+
+## Advanced Examples
+
+### Custom Hooks
+
+Add custom hooks to process media on upload or update:
+
+```typescript
+generateMediaCollection(
+  {
+    config: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    },
+    folder: 'media',
+    versioning: {
+      enabled: true,
+      storeHistory: true,
+    },
+  },
+  {
+    hooks: {
+      beforeChange: [
+        async ({ data, req }) => {
+          // Auto-generate alt text from filename if not provided
+          if (!data.alt && data.filename) {
+            data.alt = data.filename
+              .replace(/\.[^/.]+$/, '') // Remove extension
+              .replace(/[-_]/g, ' ') // Replace dashes/underscores with spaces
+              .replace(/\b\w/g, (c) => c.toUpperCase()); // Capitalize words
+          }
+          return data;
+        },
+      ],
+      afterRead: [
+        async ({ doc, req }) => {
+          // Add custom computed fields
+          if (doc.cloudinary) {
+            doc.aspectRatio = doc.cloudinary.width / doc.cloudinary.height;
+          }
+          return doc;
+        },
+      ],
+      afterDelete: [
+        async ({ doc, req }) => {
+          // Log deletions for audit trail
+          console.log(`Media deleted: ${doc.filename} (${doc.id})`);
+          // Could also trigger cleanup of related data
+        },
+      ],
+    },
+  }
+)
+```
+
+### Custom Fields
+
+Add custom fields directly in the collection config or via plugin options:
+
+<CodeGroup>
+```typescript Via Collection Config
+generateMediaCollection(
+  {
+    config: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    },
+    folder: 'media',
+  },
+  {
+    fields: [
+      {
+        name: 'alt',
+        type: 'text',
+        label: 'Alt Text',
+        required: true,
+        admin: {
+          description: 'Alternative text for accessibility',
+        },
+      },
+      {
+        name: 'caption',
+        type: 'richText',
+        label: 'Caption',
+      },
+      {
+        name: 'credits',
+        type: 'group',
+        fields: [
+          {
+            name: 'photographer',
+            type: 'text',
+            label: 'Photographer',
+          },
+          {
+            name: 'source',
+            type: 'text',
+            label: 'Source',
+          },
+        ],
+      },
+    ],
+  }
+)
+```
+
+```typescript Via Plugin Options
+generateMediaCollection(
+  {
+    config: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    },
+    folder: 'media',
+    customFields: [
+      {
+        name: 'alt',
+        type: 'text',
+        label: 'Alt Text',
+        required: true,
+      },
+      {
+        name: 'caption',
+        type: 'richText',
+        label: 'Caption',
+      },
+    ],
+  },
+  {
+    // Other collection config
+  }
+)
+```
+</CodeGroup>
+
+<Note>
+Fields defined in `collectionConfig.fields` take precedence over `cloudinaryOptions.customFields`. The plugin merges custom fields with Cloudinary fields automatically.
+</Note>
+
+### Access Control
+
+Configure fine-grained access control:
+
+```typescript
+generateMediaCollection(
+  {
+    config: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    },
+    folder: 'media',
+  },
+  {
+    access: {
+      // Public read access
+      read: () => true,
+      
+      // Only authenticated users can create
+      create: ({ req: { user } }) => {
+        return !!user;
+      },
+      
+      // Only admins or the uploader can update
+      update: ({ req: { user }, doc }) => {
+        if (!user) return false;
+        if (user.role === 'admin') return true;
+        return doc.uploadedBy === user.id;
+      },
+      
+      // Only admins can delete
+      delete: ({ req: { user } }) => {
+        return user?.role === 'admin';
+      },
+    },
+  }
+)
+```
+
+### Admin UI Customization
+
+Customize how the collection appears in the admin panel:
+
+```typescript
+generateMediaCollection(
+  {
+    config: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    },
+    folder: 'media',
+  },
+  {
+    admin: {
+      description: 'All media files stored in Cloudinary',
+      group: 'Content',
+      useAsTitle: 'filename',
+      defaultColumns: ['filename', 'cloudinary.resource_type', 'updatedAt'],
+      listSearchableFields: ['filename', 'alt', 'caption'],
+      pagination: {
+        defaultLimit: 20,
+      },
+    },
+  }
+)
+```
+
+### Multiple Media Collections
+
+Create separate collections for different types of media:
+
+```typescript
+export default buildConfig({
+  collections: [
+    // Product images
+    generateMediaCollection(
+      {
+        config: cloudinaryConfig,
+        folder: 'products',
+        publicID: {
+          enabled: true,
+          useFilename: true,
+          uniqueFilename: true,
+        },
+      },
+      {
+        slug: 'product-images',
+        admin: {
+          description: 'Product photography',
+          group: 'Products',
+        },
+        fields: [
+          {
+            name: 'product',
+            type: 'relationship',
+            relationTo: 'products',
+            required: true,
+          },
+        ],
+      }
+    ),
+    
+    // Documents & PDFs
+    generateMediaCollection(
+      {
+        config: cloudinaryConfig,
+        folder: 'documents',
+        versioning: {
+          enabled: true,
+          storeHistory: true,
+        },
+      },
+      {
+        slug: 'documents',
+        admin: {
+          description: 'PDFs and documents',
+          group: 'Content',
+        },
+        upload: {
+          mimeTypes: ['application/pdf', 'application/msword'],
+        },
+      }
+    ),
+  ],
+})
+```
+
+## How It Works
+
+The `generateMediaCollection` function from `src/collections/Media/index.ts:10-46` performs the following:
+
+<Steps>
+  <Step title="Merge Custom Fields">
+    Prioritizes fields from `collectionConfig.fields`, falls back to `cloudinaryOptions.customFields`
+  </Step>
+  
+  <Step title="Build Field Array">
+    Combines custom fields, Cloudinary fields, and version fields (if enabled)
+  </Step>
+  
+  <Step title="Create Collection Config">
+    Merges provided config with defaults:
+    - Sets `slug: 'media'` (can be overridden)
+    - Configures `upload.disableLocalStorage: true`
+    - Sets admin defaults (description, useAsTitle)
+  </Step>
+  
+  <Step title="Return Complete Config">
+    Returns a ready-to-use `CollectionConfig` object
+  </Step>
+</Steps>
+
+```typescript
+// Simplified source from index.ts:10-46
+export const generateMediaCollection = (
+  cloudinaryOptions: CloudinaryStorageOptions,
+  collectionConfig: Partial<CollectionConfig> = {},
+): CollectionConfig => {
+  // Get custom fields from collection config or options
+  const customFields =
+    (collectionConfig.fields as Field[] | undefined) ||
+    (cloudinaryOptions.customFields as Field[] | undefined) ||
+    [];
+
+  // Generate all fields
+  const fields: Field[] = [
+    ...generateCustomFields(customFields),
+    ...cloudinaryFields,
+    ...(cloudinaryOptions.versioning?.enabled &&
+    cloudinaryOptions.versioning?.storeHistory
+      ? versionFields
+      : []),
+  ];
+
+  return {
+    ...collectionConfig,
+    slug: "media",
+    upload: {
+      ...(typeof collectionConfig.upload === "object"
+        ? collectionConfig.upload
+        : {}),
+      disableLocalStorage: true,
+    },
+    fields,
+    admin: {
+      ...(collectionConfig.admin || {}),
+      description: "Cloudinary storage with versioning support",
+      useAsTitle: "filename",
+    },
+  };
+};
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Plugin for Simple Cases">
+    If you only need to add custom fields without hooks or access control, use the plugin's `customFields` option instead of `generateMediaCollection`.
+  </Accordion>
+  
+  <Accordion title="Override Slug for Multiple Collections">
+    When creating multiple media collections, always override the slug:
+    ```typescript
+    { slug: 'product-images' }
+    { slug: 'documents' }
+    ```
+  </Accordion>
+  
+  <Accordion title="Keep Cloudinary Options Consistent">
+    Define a shared `cloudinaryConfig` object and reuse it across collections to avoid duplication.
+  </Accordion>
+  
+  <Accordion title="Test Hooks Thoroughly">
+    Custom hooks can affect upload performance and data integrity. Always test beforeChange and afterChange hooks with various file types.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Media Collection Structure" icon="database" href="/guides/media-collection">
+    Understand all available fields in media documents
+  </Card>
+  <Card title="Frontend Integration" icon="code" href="/guides/frontend-integration">
+    Use media in your React/Next.js applications
+  </Card>
+</CardGroup>

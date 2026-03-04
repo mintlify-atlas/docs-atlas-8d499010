@@ -1,0 +1,497 @@
+---
+title: 'PDF Support'
+description: 'Handle PDF files with automatic page counting and thumbnail generation'
+---
+
+The Payload Cloudinary plugin provides comprehensive PDF support, including automatic page counting, page selection for thumbnails, and seamless integration with Payload's admin UI.
+
+## Features
+
+- **Automatic page counting**: Detects the number of pages when a PDF is uploaded
+- **Thumbnail generation**: Creates preview images for PDF pages
+- **Page selection**: Choose which page to use as the thumbnail in admin UI
+- **Admin UI integration**: Displays PDF thumbnails automatically
+- **Frontend support**: Easy access to page counts and thumbnail URLs
+
+## Configuration
+
+<ParamField path="enablePDFThumbnails" type="boolean" default={true}>
+  Whether to enable PDF thumbnail generation in the admin UI. When `true`, the plugin automatically generates thumbnails for PDF files.
+</ParamField>
+
+PDF support is enabled by default. You can disable it if needed:
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary';
+
+export default buildConfig({
+  plugins: [
+    cloudinaryStorage({
+      config: { /* ... */ },
+      collections: { 'media': true },
+      enablePDFThumbnails: false, // Disable PDF thumbnails
+    })
+  ]
+});
+```
+
+## PDF Metadata
+
+When a PDF is uploaded, the plugin automatically adds PDF-specific metadata:
+
+```typescript
+{
+  id: '123',
+  filename: 'document.pdf',
+  mimeType: 'application/pdf',
+  cloudinary: {
+    public_id: 'my-app/document',
+    resource_type: 'image',
+    format: 'pdf',
+    secure_url: 'https://res.cloudinary.com/.../document.pdf',
+    pages: 12,              // Number of pages in the PDF
+    selected_page: 1,       // Currently selected page for thumbnail
+    thumbnail_url: '...',   // URL for the thumbnail image
+  }
+}
+```
+
+### Field Descriptions
+
+<ParamField path="cloudinary.pages" type="number">
+  Total number of pages in the PDF document.
+</ParamField>
+
+<ParamField path="cloudinary.selected_page" type="number">
+  The page number currently selected for thumbnail display (1-indexed). Defaults to page 1.
+</ParamField>
+
+<ParamField path="cloudinary.thumbnail_url" type="string">
+  Cloudinary URL for the thumbnail image of the selected page.
+</ParamField>
+
+## Admin UI Integration
+
+The plugin automatically configures the admin UI to display PDF thumbnails:
+
+```typescript
+// This happens automatically when enablePDFThumbnails is true
+adminThumbnail: ({ doc }) => {
+  if (doc.cloudinary?.format === 'pdf') {
+    const page = doc.cloudinary.selected_page || 1;
+    return `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_300,h_400,c_fill,q_auto,f_jpg/${doc.cloudinary.public_id}.pdf`;
+  }
+  return doc.cloudinary?.secure_url || '';
+}
+```
+
+This generates optimized JPEG thumbnails:
+- Width: 300px
+- Height: 400px
+- Crop: Fill
+- Quality: Auto-optimized
+- Format: JPEG (converted from PDF)
+
+## Frontend Usage
+
+### Basic PDF Display
+
+```tsx
+interface PDFMediaType {
+  filename: string;
+  cloudinary: {
+    public_id: string;
+    format: string;
+    pages?: number;
+    selected_page?: number;
+  };
+}
+
+const PDFPreview = ({ media }: { media: PDFMediaType }) => {
+  if (media.cloudinary.format !== 'pdf') {
+    return null;
+  }
+
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const { public_id, pages, selected_page } = media.cloudinary;
+  const page = selected_page || 1;
+
+  return (
+    <div className="pdf-preview">
+      <h3>{media.filename}</h3>
+      <p>{pages} pages</p>
+      
+      {/* Thumbnail of selected page */}
+      <a 
+        href={`https://res.cloudinary.com/${cloudName}/image/upload/${public_id}.pdf`}
+        target="_blank"
+      >
+        <img
+          src={`https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_300,h_400,c_fill,q_auto,f_jpg/${public_id}.pdf`}
+          alt={`${media.filename} - Page ${page}`}
+        />
+      </a>
+    </div>
+  );
+};
+```
+
+### Complete PDF Viewer with Page Navigation
+
+```tsx
+interface PDFViewerProps {
+  media: {
+    filename: string;
+    cloudinary: {
+      public_id: string;
+      format: string;
+      pages?: number;
+      selected_page?: number;
+    };
+  };
+}
+
+const PDFViewer = ({ media }: PDFViewerProps) => {
+  if (media.cloudinary.format !== 'pdf') {
+    return null;
+  }
+
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const { public_id, pages = 1, selected_page = 1 } = media.cloudinary;
+  const [currentPage, setCurrentPage] = useState(selected_page);
+
+  const getThumbnailURL = (page: number) => {
+    return `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_300,h_400,c_fill,q_auto,f_jpg/${public_id}.pdf`;
+  };
+
+  const getFullPageURL = (page: number) => {
+    return `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_800,q_auto,f_jpg/${public_id}.pdf`;
+  };
+
+  return (
+    <div className="pdf-viewer">
+      <header>
+        <h2>{media.filename}</h2>
+        <p>Page {currentPage} of {pages}</p>
+      </header>
+
+      {/* Main page display */}
+      <div className="main-view">
+        <img
+          src={getFullPageURL(currentPage)}
+          alt={`Page ${currentPage}`}
+          className="main-image"
+        />
+      </div>
+
+      {/* Page navigation */}
+      {pages > 1 && (
+        <div className="page-navigation">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </button>
+          
+          <span>Page {currentPage} / {pages}</span>
+          
+          <button
+            onClick={() => setCurrentPage(p => Math.min(pages, p + 1))}
+            disabled={currentPage === pages}
+          >
+            Next
+          </button>
+        </div>
+      )}
+
+      {/* Thumbnail grid */}
+      {pages > 1 && (
+        <div className="thumbnail-grid">
+          {Array.from({ length: pages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={page === currentPage ? 'active' : ''}
+            >
+              <img
+                src={getThumbnailURL(page)}
+                alt={`Page ${page}`}
+              />
+              <span>Page {page}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Download link */}
+      <a
+        href={`https://res.cloudinary.com/${cloudName}/image/upload/${public_id}.pdf`}
+        download
+        className="download-button"
+      >
+        Download PDF
+      </a>
+    </div>
+  );
+};
+```
+
+### Thumbnail Gallery
+
+Display all pages as thumbnails:
+
+```tsx
+const PDFThumbnailGallery = ({ media }) => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const { public_id, pages = 1 } = media.cloudinary;
+
+  return (
+    <div className="pdf-gallery">
+      <h3>{media.filename}</h3>
+      <div className="thumbnails">
+        {Array.from({ length: pages }).map((_, i) => {
+          const page = i + 1;
+          return (
+            <div key={page} className="thumbnail">
+              <img
+                src={`https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_100,h_130,c_fill,q_auto,f_jpg/${public_id}.pdf`}
+                alt={`Page ${page}`}
+              />
+              <span>Page {page}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+```
+
+## Cloudinary Transformations
+
+You can apply various transformations to PDF thumbnails:
+
+### High-Quality Preview
+
+```typescript
+const getHighQualityThumbnail = (publicId: string, page: number) => {
+  return `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_600,h_800,c_fit,q_90,f_jpg/${publicId}.pdf`;
+};
+```
+
+### Square Thumbnail
+
+```typescript
+const getSquareThumbnail = (publicId: string, page: number) => {
+  return `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_200,h_200,c_fill,g_center,q_auto,f_jpg/${publicId}.pdf`;
+};
+```
+
+### Responsive Thumbnails
+
+```tsx
+const ResponsivePDFThumbnail = ({ publicId, page }) => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  
+  return (
+    <picture>
+      <source
+        media="(max-width: 640px)"
+        srcSet={`https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_300,c_fill,q_auto,f_jpg/${publicId}.pdf`}
+      />
+      <source
+        media="(max-width: 1024px)"
+        srcSet={`https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_500,c_fill,q_auto,f_jpg/${publicId}.pdf`}
+      />
+      <img
+        src={`https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_800,c_fill,q_auto,f_jpg/${publicId}.pdf`}
+        alt={`Page ${page}`}
+      />
+    </picture>
+  );
+};
+```
+
+## Accessing PDF Data
+
+### Query PDF Documents
+
+```typescript
+// Find all PDFs
+const pdfs = await payload.find({
+  collection: 'media',
+  where: {
+    'cloudinary.format': {
+      equals: 'pdf',
+    },
+  },
+});
+
+// Find PDFs with more than 10 pages
+const longPDFs = await payload.find({
+  collection: 'media',
+  where: {
+    and: [
+      {
+        'cloudinary.format': {
+          equals: 'pdf',
+        },
+      },
+      {
+        'cloudinary.pages': {
+          greater_than: 10,
+        },
+      },
+    ],
+  },
+});
+```
+
+### Update Selected Page
+
+```typescript
+// Change which page is used for the thumbnail
+await payload.update({
+  collection: 'media',
+  id: 'pdf-doc-id',
+  data: {
+    cloudinary: {
+      selected_page: 3, // Use page 3 as thumbnail
+    },
+  },
+});
+```
+
+## Advanced Features
+
+### Convert PDF to Images
+
+Generate individual images for each page:
+
+```typescript
+const convertPDFPagesToImages = async (media, cloudName) => {
+  const { public_id, pages } = media.cloudinary;
+  
+  const images = [];
+  for (let page = 1; page <= pages; page++) {
+    images.push({
+      page,
+      url: `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},f_jpg/${public_id}.pdf`,
+    });
+  }
+  
+  return images;
+};
+```
+
+### Custom Thumbnail Generator
+
+Override the default thumbnail generator:
+
+```typescript
+import { cloudinaryStorage } from 'payload-cloudinary';
+import type { PayloadDocument } from 'payload-cloudinary';
+
+export default buildConfig({
+  collections: [
+    {
+      slug: 'media',
+      upload: {
+        adminThumbnail: ({ doc }: { doc: PayloadDocument }) => {
+          if (doc.cloudinary?.format === 'pdf') {
+            // Custom PDF thumbnail logic
+            const page = doc.cloudinary.selected_page || 1;
+            return `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_400,h_500,c_fill,q_auto,f_webp/${doc.cloudinary.public_id}.pdf`;
+          }
+          return doc.cloudinary?.secure_url || '';
+        },
+      },
+      fields: [],
+    },
+  ],
+  plugins: [
+    cloudinaryStorage({
+      config: { /* ... */ },
+      collections: { 'media': true },
+      enablePDFThumbnails: false, // Disable default, use custom
+    })
+  ],
+});
+```
+
+## Best Practices
+
+### 1. Optimize Thumbnail Size
+
+Use appropriate dimensions for your use case:
+
+```typescript
+// Admin UI: Smaller thumbnails
+pg_${page},w_150,h_200,c_fill,q_auto,f_jpg
+
+// Gallery view: Medium thumbnails
+pg_${page},w_300,h_400,c_fill,q_auto,f_jpg
+
+// Full preview: Larger images
+pg_${page},w_800,h_1000,c_fit,q_80,f_jpg
+```
+
+### 2. Use Auto Quality
+
+Let Cloudinary optimize quality:
+
+```typescript
+// Good: Auto quality
+q_auto
+
+// Avoid: Fixed quality unless necessary
+q_80
+```
+
+### 3. Convert to WebP for Modern Browsers
+
+```typescript
+const getThumbnail = (publicId: string, page: number, format = 'jpg') => {
+  return `https://res.cloudinary.com/${cloudName}/image/upload/pg_${page},w_300,h_400,c_fill,q_auto,f_${format}/${publicId}.pdf`;
+};
+
+// Use WebP with JPEG fallback
+<picture>
+  <source srcSet={getThumbnail(publicId, page, 'webp')} type="image/webp" />
+  <img src={getThumbnail(publicId, page, 'jpg')} alt="PDF page" />
+</picture>
+```
+
+### 4. Lazy Load Thumbnails
+
+```tsx
+<img
+  src={thumbnailURL}
+  alt="PDF page"
+  loading="lazy"
+/>
+```
+
+## TypeScript Support
+
+```typescript
+import type { PayloadDocument, CloudinaryMetadata } from 'payload-cloudinary';
+
+interface PDFMetadata extends CloudinaryMetadata {
+  format: 'pdf';
+  pages: number;
+  selected_page?: number;
+  thumbnail_url?: string;
+}
+
+interface PDFDocument extends PayloadDocument {
+  cloudinary: PDFMetadata;
+}
+```
+
+## Next Steps
+
+- Learn about [dynamic folder mode](/configuration/dynamic-folders)
+- Explore [custom fields](/configuration/custom-fields)
+- Configure [public ID customization](/configuration/public-id)
