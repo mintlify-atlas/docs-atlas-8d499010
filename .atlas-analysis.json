@@ -1,0 +1,87 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Payload Cloudinary",
+  "projectDescription": "A Cloudinary storage plugin for Payload CMS with versioning, custom fields, and PDF support",
+  "theme": "mint",
+  "primaryColor": "#848c8e",
+  "lightColor": "#11161e",
+  "darkColor": "#cfd0d2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/basic",
+              "configuration/custom-fields",
+              "configuration/public-id",
+              "configuration/versioning",
+              "configuration/pdf-support",
+              "configuration/dynamic-folders"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/media-collection",
+              "guides/custom-media-collection",
+              "guides/frontend-integration",
+              "guides/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core",
+            "pages": [
+              "api/cloudinary-storage",
+              "api/generate-media-collection",
+              "api/types"
+            ]
+          },
+          {
+            "group": "Configuration Options",
+            "pages": [
+              "api/cloudinary-storage-options",
+              "api/public-id-options",
+              "api/versioning-options"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Seamless Cloudinary integration with Payload CMS",
+    "Advanced versioning support with history tracking",
+    "Customizable public ID generation",
+    "Support for custom fields in media collections",
+    "PDF support with thumbnail generation",
+    "Dynamic folder mode support for newer Cloudinary accounts",
+    "Automatic file deletion from Cloudinary",
+    "URL generation with transformations"
+  ],
+  "publicApiSurface": [
+    "cloudinaryStorage(options: CloudinaryStorageOptions)",
+    "generateMediaCollection(cloudinaryOptions, collectionConfig)",
+    "CloudinaryStorageOptions",
+    "CloudinaryMetadata",
+    "PublicIDOptions",
+    "CloudinaryVersioningOptions",
+    "CloudinaryConfig",
+    "CloudinaryAdapter"
+  ]
+}
