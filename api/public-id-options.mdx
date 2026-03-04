@@ -50,7 +50,7 @@ export type PublicIDOptions = {
 ### Basic Configuration
 
 ```typescript
-import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+import { cloudinaryStorage } from 'payload-cloudinary';
 
 export default buildConfig({
   plugins: [
@@ -76,7 +76,7 @@ export default buildConfig({
 ### Custom Public ID Generator
 
 ```typescript
-import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+import { cloudinaryStorage } from 'payload-cloudinary';
 import { nanoid } from 'nanoid';
 
 export default buildConfig({
@@ -107,7 +107,7 @@ export default buildConfig({
 ### Disable Custom Public IDs
 
 ```typescript
-import { cloudinaryStorage } from 'payload-cloudinary-plugin';
+import { cloudinaryStorage } from 'payload-cloudinary';
 
 export default buildConfig({
   plugins: [
